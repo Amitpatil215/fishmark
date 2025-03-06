@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -17,11 +17,30 @@ interface BookmarkDialogProps {
 
 export function BookmarkDialog({ open, onOpenChange, onSave, initialData }: BookmarkDialogProps) {
   const [formData, setFormData] = useState<BookmarkFormData>({
-    title: initialData?.title || '',
-    url: initialData?.url || '',
-    description: initialData?.description || '',
-    icon: initialData?.icon || '',
+    title: '',
+    url: '',
+    description: '',
+    icon: '',
   });
+
+  // Reset form when dialog opens/closes or initialData changes
+  useEffect(() => {
+    if (open) {
+      setFormData({
+        title: initialData?.title || '',
+        url: initialData?.url || '',
+        description: initialData?.description || '',
+        icon: initialData?.icon || '',
+      });
+    } else {
+      setFormData({
+        title: '',
+        url: '',
+        description: '',
+        icon: '',
+      });
+    }
+  }, [open, initialData]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();

@@ -1,6 +1,13 @@
-'use client';
+"use client";
 
-import { ChevronRight, Globe, ExternalLink, Plus, Edit } from "lucide-react";
+import {
+  ChevronRight,
+  Globe,
+  ExternalLink,
+  Plus,
+  Edit,
+  FishSymbol,
+} from "lucide-react";
 import { cn } from "@/lib/utils";
 import { BookmarkItemProps } from "@/types/bookmark";
 import { Button } from "@/components/ui/button";
@@ -10,16 +17,16 @@ import {
   HoverCardTrigger,
 } from "@/components/ui/hover-card";
 
-export function BookmarkItem({ 
-  bookmark, 
-  depth, 
-  isActive, 
+export function BookmarkItem({
+  bookmark,
+  depth,
+  isActive,
   onHover,
   onAddBookmark,
-  onEditBookmark 
+  onEditBookmark,
 }: BookmarkItemProps) {
   const hasChildren = bookmark.children && bookmark.children.length > 0;
-  
+
   return (
     <div
       className={cn(
@@ -31,27 +38,33 @@ export function BookmarkItem({
       tabIndex={0}
     >
       <div className="flex-1 flex items-center gap-2">
-        {hasChildren && <ChevronRight className="h-4 w-4 text-muted-foreground" />}
         {bookmark.icon ? (
           <img
             src={bookmark.icon}
             alt=""
             className="w-4 h-4"
             onError={(e) => {
-              e.currentTarget.src = '/fallback-icon.png';
+              e.currentTarget.style.display = "none";
+              e.currentTarget.nextElementSibling?.classList.remove("hidden");
             }}
           />
-        ) : (
-          <Globe className="w-4 h-4 text-muted-foreground" />
-        )}
-        
+        ) : null}
+        <FishSymbol
+          className={cn(
+            "h-4 w-4 text-muted-foreground",
+            bookmark.icon ? "hidden" : ""
+          )}
+        />
+
         <HoverCard>
           <HoverCardTrigger asChild>
             <span className="font-medium truncate">{bookmark.title}</span>
           </HoverCardTrigger>
           {bookmark.description && (
             <HoverCardContent className="w-80">
-              <p className="text-sm text-muted-foreground">{bookmark.description}</p>
+              <p className="text-sm text-muted-foreground">
+                {bookmark.description}
+              </p>
             </HoverCardContent>
           )}
         </HoverCard>
@@ -65,7 +78,7 @@ export function BookmarkItem({
             className="h-8 w-8"
             onClick={(e) => {
               e.stopPropagation();
-              window.open(bookmark.url, '_blank');
+              window.open(bookmark.url, "_blank");
             }}
           >
             <ExternalLink className="h-4 w-4" />
@@ -93,6 +106,9 @@ export function BookmarkItem({
         >
           <Plus className="h-4 w-4" />
         </Button>
+        {hasChildren && (
+          <ChevronRight className="h-4 w-4 text-muted-foreground" />
+        )}
       </div>
     </div>
   );

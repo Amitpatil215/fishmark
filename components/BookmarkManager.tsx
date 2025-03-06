@@ -5,6 +5,7 @@ import { AnimatePresence } from 'framer-motion';
 import { Bookmark, BookmarkFormData } from '@/types/bookmark';
 import { BookmarkColumn } from './BookmarkColumn';
 import { BookmarkDialog } from './BookmarkDialog';
+import { loadBookmarks, saveBookmarks } from '@/lib/db';
 
 const demoBookmarks: Bookmark[] = [
   {
@@ -71,8 +72,8 @@ const demoBookmarks: Bookmark[] = [
 ];
 
 export function BookmarkManager() {
-  const [bookmarks, setBookmarks] = useState<Bookmark[]>(demoBookmarks);
-  const [activeColumns, setActiveColumns] = useState<Bookmark[][]>([[...bookmarks]]);
+  const [bookmarks, setBookmarks] = useState<Bookmark[]>([]);
+  const [activeColumns, setActiveColumns] = useState<Bookmark[][]>([[]]);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingBookmark, setEditingBookmark] = useState<{
     bookmark?: Bookmark;
@@ -82,6 +83,38 @@ export function BookmarkManager() {
   const containerRef = useRef<HTMLDivElement>(null);
   const [isScrolling, setIsScrolling] = useState(false);
   const scrollIntervalRef = useRef<NodeJS.Timeout>();
+
+  useEffect(() => {
+    // Load bookmarks from IndexedDB when component mounts
+    loadBookmarks()
+      .then((loadedBookmarks) => {
+        if (loadedBookmarks.length > 0) {
+          setBookmarks(loadedBookmarks);
+          setActiveColumns([[...loadedBookmarks]]);
+        } else {
+          // If no bookmarks in IndexedDB, use demo bookmarks
+          setBookmarks(demoBookmarks);
+          setActiveColumns([[...demoBookmarks]]);
+          // Save demo bookmarks to IndexedDB
+          saveBookmarks(demoBookmarks);
+        }
+      })
+      .catch((error) => {
+        console.error('Error loading bookmarks:', error);
+        // Fallback to demo bookmarks
+        setBookmarks(demoBookmarks);
+        setActiveColumns([[...demoBookmarks]]);
+      });
+  }, []);
+
+  // Save bookmarks to IndexedDB whenever they change
+  useEffect(() => {
+    if (bookmarks.length > 0) {
+      saveBookmarks(bookmarks).catch((error) => {
+        console.error('Error saving bookmarks:', error);
+      });
+    }
+  }, [bookmarks]);
 
   const handleScroll = (direction: 'left' | 'right') => {
     if (!containerRef.current || isScrolling) return;
@@ -176,13 +209,27 @@ export function BookmarkManager() {
     setDialogOpen(true);
   };
 
+  const getFaviconUrl = (url: string) => {
+    try {
+      const urlObj = new URL(url);
+      return `${urlObj.protocol}//${urlObj.hostname}/favicon.ico`;
+    } catch {
+      return '';
+    }
+  };
+
   const handleSaveBookmark = (formData: BookmarkFormData) => {
+    const bookmarkData = {
+      ...formData,
+      icon: formData.url ? getFaviconUrl(formData.url) : undefined
+    };
+
     if (editingBookmark?.bookmark) {
       // Edit existing bookmark
       const updatedBookmarks = updateBookmarkInTree(
         bookmarks,
         editingBookmark.bookmark.id,
-        formData
+        bookmarkData
       );
       setBookmarks(updatedBookmarks);
       setActiveColumns([[...updatedBookmarks]]);
@@ -190,7 +237,7 @@ export function BookmarkManager() {
       // Add new bookmark
       const newBookmark: Bookmark = {
         id: Math.random().toString(36).substr(2, 9),
-        ...formData,
+        ...bookmarkData,
       };
       const updatedBookmarks = addBookmarkToTree(
         bookmarks,
