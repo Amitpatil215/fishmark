@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
-import { AnimatePresence } from "framer-motion";
+import { AnimatePresence, motion } from "framer-motion";
 import {
   DndContext,
   DragEndEvent,
@@ -32,6 +32,9 @@ import { SearchBar } from "./SearchBar";
 import { SearchResults } from "./SearchResults";
 import { SocialLinks } from './SocialLinks';
 import { AnimatedHeader } from "./AnimatedHeader";
+import { PlusCircle } from "lucide-react";
+import { Button } from "./ui/button";
+import { EmptyState } from "./EmptyState";
 
 export function BookmarkManager() {
   const [bookmarks, setBookmarks] = useState<Bookmark[]>([]);
@@ -669,46 +672,50 @@ export function BookmarkManager() {
         </div>
       </header>
 
-      <DndContext
-        sensors={sensors}
-        collisionDetection={closestCenter}
-        onDragEnd={handleDragEnd}
-      >
-        <div className="h-[calc(100vh-4rem)] flex relative">
-          <div
-            className="absolute left-0 top-0 bottom-0 w-16 z-10"
-            onMouseEnter={() => handleScroll("left")}
-            onMouseLeave={stopScroll}
-          />
-          <div
-            className="absolute right-0 top-0 bottom-0 w-16 z-10"
-            onMouseEnter={() => handleScroll("right")}
-            onMouseLeave={stopScroll}
-          />
-          <div
-            ref={containerRef}
-            className="flex overflow-x-auto scrollbar-hide"
-            style={{ scrollBehavior: "smooth" }}
-          >
-            <AnimatePresence initial={false}>
-              {activeColumns.map((columnBookmarks, index) => (
-                <BookmarkColumn
-                  key={index}
-                  bookmarks={columnBookmarks}
-                  depth={index}
-                  onHover={handleHover}
-                  activeColumns={activeColumns}
-                  onAddBookmark={handleAddBookmark}
-                  onEditBookmark={handleEditBookmark}
-                  columnId={
-                    index === 0 ? "root" : activeColumns[index - 1]?.[0]?.id
-                  }
-                />
-              ))}
-            </AnimatePresence>
+      {bookmarks.length === 0 ? (
+        <EmptyState onAddBookmark={() => handleAddBookmark(null)} />
+      ) : (
+        <DndContext
+          sensors={sensors}
+          collisionDetection={closestCenter}
+          onDragEnd={handleDragEnd}
+        >
+          <div className="h-[calc(100vh-4rem)] flex relative">
+            <div
+              className="absolute left-0 top-0 bottom-0 w-16 z-10"
+              onMouseEnter={() => handleScroll("left")}
+              onMouseLeave={stopScroll}
+            />
+            <div
+              className="absolute right-0 top-0 bottom-0 w-16 z-10"
+              onMouseEnter={() => handleScroll("right")}
+              onMouseLeave={stopScroll}
+            />
+            <div
+              ref={containerRef}
+              className="flex overflow-x-auto scrollbar-hide"
+              style={{ scrollBehavior: "smooth" }}
+            >
+              <AnimatePresence initial={false}>
+                {activeColumns.map((columnBookmarks, index) => (
+                  <BookmarkColumn
+                    key={index}
+                    bookmarks={columnBookmarks}
+                    depth={index}
+                    onHover={handleHover}
+                    activeColumns={activeColumns}
+                    onAddBookmark={handleAddBookmark}
+                    onEditBookmark={handleEditBookmark}
+                    columnId={
+                      index === 0 ? "root" : activeColumns[index - 1]?.[0]?.id
+                    }
+                  />
+                ))}
+              </AnimatePresence>
+            </div>
           </div>
-        </div>
-      </DndContext>
+        </DndContext>
+      )}
 
       <BookmarkDialog
         open={dialogOpen}
