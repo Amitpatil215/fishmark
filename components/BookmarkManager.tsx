@@ -35,6 +35,7 @@ import { AnimatedHeader } from "./AnimatedHeader";
 import { PlusCircle } from "lucide-react";
 import { Button } from "./ui/button";
 import { EmptyState } from "./EmptyState";
+import { throttle } from "@/lib/utils";
 
 export function BookmarkManager() {
   const [bookmarks, setBookmarks] = useState<Bookmark[]>([]);
@@ -187,18 +188,36 @@ export function BookmarkManager() {
     };
   }, []);
 
-  const handleHover = (bookmark: Bookmark, depth: number) => {
-    if (bookmark.children) {
-      const newColumns = activeColumns.slice(0, depth + 1);
+  const handleHoverImpl = (bookmark: Bookmark, depth: number) => {
+    // Create a new array of active columns, keeping columns up to the current depth
+    const newColumns = activeColumns.slice(0, depth + 1);
+    
+    // Store hovered bookmark information in a way that doesn't reorder the array
+    // We'll attach a special property to the bookmark instead
+    const updatedCurrentColumn = newColumns[depth].map(b => ({
+      ...b,
+      isHovered: b.id === bookmark.id
+    }));
+    newColumns[depth] = updatedCurrentColumn;
+    
+    if (bookmark.children && bookmark.children.length > 0) {
       // Add parent name to each child bookmark
       const childrenWithParentName = bookmark.children.map((child) => ({
         ...child,
         parentName: bookmark.title,
       }));
       newColumns[depth + 1] = childrenWithParentName;
-      setActiveColumns(newColumns);
+    } else {
+      // For bookmarks without children, create an empty column
+      // This ensures we show an empty column when hovering over items without children
+      newColumns[depth + 1] = [];
     }
+    
+    setActiveColumns(newColumns);
   };
+  
+  // Throttled version of handleHover to prevent excessive re-renders
+  const handleHover = throttle(handleHoverImpl, 100);
 
   const addBookmarkToTree = (
     items: Bookmark[],

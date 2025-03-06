@@ -1,46 +1,58 @@
-'use client';
+"use client";
 
 import { motion } from "framer-motion";
-import { SortableContext, verticalListSortingStrategy } from "@dnd-kit/sortable";
+import {
+  SortableContext,
+  verticalListSortingStrategy,
+} from "@dnd-kit/sortable";
 import { BookmarkColumnProps } from "@/types/bookmark";
 import { BookmarkItem } from "./BookmarkItem";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Button } from "@/components/ui/button";
 import { Plus } from "lucide-react";
 
-export function BookmarkColumn({ 
-  bookmarks, 
-  depth, 
-  onHover, 
+export function BookmarkColumn({
+  bookmarks,
+  depth,
+  onHover,
   activeColumns,
   onAddBookmark,
   onEditBookmark,
-  columnId
+  columnId,
 }: BookmarkColumnProps) {
   // Get the parent bookmark name if this is a nested column
   const getColumnTitle = () => {
-    if (depth === 0) return 'All Bookmarks';
+    if (depth === 0) return "All Bookmarks";
+
+    // Find the hovered bookmark in the previous column
+    const hoveredBookmark = activeColumns[depth - 1]?.find(b => b.isHovered);
     
-    // For nested columns (depth > 0), find the parent bookmark
-    // The parent is the active bookmark from the previous column that contains these children
-    const parentBookmark = activeColumns[depth-1]?.find(b => 
-      b.children?.some(child => bookmarks.some(bm => bm.id === child.id))
-    );
-    
-    return parentBookmark ? `${parentBookmark.title}` : 'Nested Bookmarks';
+    // If we found a hovered bookmark, use its title
+    if (hoveredBookmark) {
+      // If this is an empty column (no bookmarks), it means we're showing
+      // an empty children list for the item hovered in the previous column
+      if (bookmarks.length === 0) {
+        return `${hoveredBookmark.title} (Empty)`;
+      }
+      return hoveredBookmark.title;
+    }
+
+    return "Nested Bookmarks";
   };
-  
+
   // Get the parent ID for adding new bookmarks
   const getParentId = () => {
     if (depth === 0) return null;
+
+    // Find the hovered bookmark in the previous column
+    const hoveredBookmark = activeColumns[depth - 1]?.find(b => b.isHovered);
     
-    // For nested columns, we need to find the parent bookmark
-    // The parent is the active bookmark from the previous column that contains these children
-    const parentBookmark = activeColumns[depth-1]?.find(b => 
-      b.children?.some(child => bookmarks.some(bm => bm.id === child.id))
-    );
-    
-    return parentBookmark?.id || null;
+    // If we found a hovered bookmark, use its ID
+    if (hoveredBookmark?.id) {
+      return hoveredBookmark.id;
+    }
+
+    return null;
   };
 
   return (
@@ -57,17 +69,16 @@ export function BookmarkColumn({
               {getColumnTitle()}
             </span>
             <Button
-              variant="outline"
+              variant="ghost"
               size="sm"
               onClick={() => onAddBookmark(getParentId())}
               className="h-8"
             >
-              <Plus className="h-4 w-4 mr-2" />
-              Add
+              <Plus className="h-4 w-4" />
             </Button>
           </div>
-          <SortableContext 
-            items={bookmarks.map(b => b.id)}
+          <SortableContext
+            items={bookmarks.map((b) => b.id)}
             strategy={verticalListSortingStrategy}
             id={columnId}
           >

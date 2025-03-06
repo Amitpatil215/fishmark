@@ -18,7 +18,7 @@ import {
   HoverCardContent,
   HoverCardTrigger,
 } from "@/components/ui/hover-card";
-import { useState } from "react";
+import { useState, memo } from "react";
 
 // Status bar component
 function StatusBar({ url }: { url: string }) {
@@ -29,7 +29,8 @@ function StatusBar({ url }: { url: string }) {
   );
 }
 
-export function BookmarkItem({
+// Base BookmarkItem component
+function BookmarkItemBase({
   bookmark,
   depth,
   index,
@@ -169,3 +170,6 @@ export function BookmarkItem({
     </div>
   );
 }
+
+// Memoize the BookmarkItem to prevent unnecessary re-renders
+export const BookmarkItem = memo(BookmarkItemBase);
