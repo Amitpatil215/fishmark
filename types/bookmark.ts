@@ -5,6 +5,7 @@ export interface Bookmark {
   description?: string;
   icon?: string;
   children?: Bookmark[];
+  parentName?: string;
 }
 
 export interface BookmarkColumnProps {

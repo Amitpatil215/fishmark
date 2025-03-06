@@ -259,7 +259,12 @@ export function BookmarkManager() {
   const handleHover = (bookmark: Bookmark, depth: number) => {
     if (bookmark.children) {
       const newColumns = activeColumns.slice(0, depth + 1);
-      newColumns[depth + 1] = bookmark.children;
+      // Add parent name to each child bookmark
+      const childrenWithParentName = bookmark.children.map(child => ({
+        ...child,
+        parentName: bookmark.title
+      }));
+      newColumns[depth + 1] = childrenWithParentName;
       setActiveColumns(newColumns);
     }
   };
@@ -275,11 +280,17 @@ export function BookmarkManager() {
 
     return items.map((item) => {
       if (item.id === parentId) {
+        // Add parent name to the new bookmark
+        const bookmarkWithParent = {
+          ...newBookmark,
+          parentName: item.title
+        };
+        
         return {
           ...item,
           children: item.children
-            ? [...item.children, newBookmark]
-            : [newBookmark],
+            ? [...item.children, bookmarkWithParent]
+            : [bookmarkWithParent],
         };
       }
       if (item.children) {
@@ -420,6 +431,7 @@ export function BookmarkManager() {
   };
 
   const handleUpdateActiveColumns = (importedBookmarks: Bookmark[]) => {
+    // For the root level, we don't need parent names
     setActiveColumns([[...importedBookmarks]]);
   };
 

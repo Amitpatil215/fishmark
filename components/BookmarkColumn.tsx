@@ -17,6 +17,32 @@ export function BookmarkColumn({
   onEditBookmark,
   columnId
 }: BookmarkColumnProps) {
+  // Get the parent bookmark name if this is a nested column
+  const getColumnTitle = () => {
+    if (depth === 0) return 'All Bookmarks';
+    
+    // For nested columns (depth > 0), find the parent bookmark
+    // The parent is the active bookmark from the previous column that contains these children
+    const parentBookmark = activeColumns[depth-1]?.find(b => 
+      b.children?.some(child => bookmarks.some(bm => bm.id === child.id))
+    );
+    
+    return parentBookmark ? `${parentBookmark.title}` : 'Nested Bookmarks';
+  };
+  
+  // Get the parent ID for adding new bookmarks
+  const getParentId = () => {
+    if (depth === 0) return null;
+    
+    // For nested columns, we need to find the parent bookmark
+    // The parent is the active bookmark from the previous column that contains these children
+    const parentBookmark = activeColumns[depth-1]?.find(b => 
+      b.children?.some(child => bookmarks.some(bm => bm.id === child.id))
+    );
+    
+    return parentBookmark?.id || null;
+  };
+
   return (
     <motion.div
       initial={{ opacity: 0, x: 20 }}
@@ -28,12 +54,12 @@ export function BookmarkColumn({
         <div className="p-4 space-y-2">
           <div className="flex justify-between items-center mb-4">
             <span className="text-sm font-medium text-muted-foreground">
-              {depth === 0 ? 'All Bookmarks' : 'Nested Bookmarks'}
+              {getColumnTitle()}
             </span>
             <Button
               variant="outline"
               size="sm"
-              onClick={() => onAddBookmark(null)}
+              onClick={() => onAddBookmark(getParentId())}
               className="h-8"
             >
               <Plus className="h-4 w-4 mr-2" />
