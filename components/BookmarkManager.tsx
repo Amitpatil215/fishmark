@@ -31,6 +31,7 @@ import { FishSymbol } from "lucide-react";
 import { SearchBar } from "./SearchBar";
 import { SearchResults } from "./SearchResults";
 import { SocialLinks } from './SocialLinks';
+import { AnimatedHeader } from "./AnimatedHeader";
 
 export function BookmarkManager() {
   const [bookmarks, setBookmarks] = useState<Bookmark[]>([]);
@@ -637,10 +638,7 @@ export function BookmarkManager() {
   return (
     <div className="flex flex-col h-screen">
       <header className="h-16 border-b flex items-center justify-between px-6">
-        <div className="flex items-center gap-2">
-          <FishSymbol />
-          <h1 className="text-2xl font-semibold">Fishmark</h1>
-        </div>
+        <AnimatedHeader />
         <div className="flex items-center gap-4">
           <SocialLinks 
             twitterUrl="https://x.com/amiit_fyi"
