@@ -622,4 +622,85 @@ export async function getTransactionHistory(limit: number = MAX_HISTORY): Promis
     
     request.onerror = () => reject(request.error);
   });
+}
+
+export async function deleteBookmark(bookmarkId: string): Promise<void> {
+  return new Promise(async (resolve, reject) => {
+    try {
+      const db = await initDB();
+      const transaction = db.transaction([BOOKMARKS_STORE], 'readwrite');
+      const store = transaction.objectStore(BOOKMARKS_STORE);
+      
+      // Get all bookmarks to find children
+      const getAllRequest = store.getAll();
+      
+      getAllRequest.onsuccess = () => {
+        const allBookmarks = getAllRequest.result;
+        console.log('All bookmarks in database:', allBookmarks);
+        
+        // Check if bookmark exists
+        const bookmarkExists = allBookmarks.some(bookmark => bookmark.id === bookmarkId);
+        if (!bookmarkExists) {
+          console.log('Bookmark not found:', bookmarkId);
+          resolve(); // Bookmark doesn't exist, nothing to delete
+          return;
+        }
+        
+        // Find all descendant bookmarks that need to be deleted
+        const bookmarksToDelete = findAllDescendants(allBookmarks, bookmarkId);
+        bookmarksToDelete.push(bookmarkId); // Add the bookmark itself
+        
+        console.log('Deleting bookmarks:', bookmarksToDelete);
+        
+        // Delete all bookmarks in the list
+        const deletePromises = bookmarksToDelete.map(id => {
+          return new Promise<void>((resolveDelete, rejectDelete) => {
+            const deleteRequest = store.delete(id);
+            deleteRequest.onsuccess = () => {
+              console.log('Successfully deleted bookmark:', id);
+              resolveDelete();
+            };
+            deleteRequest.onerror = () => {
+              console.error('Error deleting bookmark:', id, deleteRequest.error);
+              rejectDelete(deleteRequest.error);
+            };
+          });
+        });
+        
+        Promise.all(deletePromises)
+          .then(() => {
+            console.log('All bookmarks deleted successfully');
+            transaction.oncomplete = () => resolve();
+            transaction.onerror = () => reject(transaction.error);
+          })
+          .catch(error => {
+            console.error('Error deleting bookmarks:', error);
+            reject(error);
+          });
+      };
+      
+      getAllRequest.onerror = () => reject(getAllRequest.error);
+      
+    } catch (error) {
+      console.error('Error in deleteBookmark:', error);
+      reject(error);
+    }
+  });
+}
+
+// Helper function to find all descendant bookmarks
+function findAllDescendants(bookmarks: any[], parentId: string): string[] {
+  const descendants: string[] = [];
+  
+  for (const bookmark of bookmarks) {
+    if (bookmark.parentId === parentId) {
+      descendants.push(bookmark.id);
+      // Recursively find children of this bookmark
+      const childDescendants = findAllDescendants(bookmarks, bookmark.id);
+      descendants.push(...childDescendants);
+    }
+  }
+  
+  console.log(`Found ${descendants.length} descendants for parent ${parentId}`);
+  return descendants;
 } 

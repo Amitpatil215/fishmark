@@ -24,6 +24,7 @@ import {
   moveBookmarkToParent,
   logTransaction,
   getTransactionHistory,
+  deleteBookmark,
 } from "@/lib/db";
 import { ThemeToggle } from "./ThemeToggle";
 import { FishSymbol } from "lucide-react";
@@ -588,6 +589,58 @@ export function BookmarkManager() {
     return [];
   };
 
+  // Handle deleting all bookmarks
+  const handleDeleteAllBookmarks = async () => {
+    try {
+      // Create a copy of all bookmark IDs at the root level
+      const rootBookmarkIds = [...bookmarks].map(bookmark => bookmark.id);
+      
+      // Delete each root bookmark (which will cascade to delete all children)
+      for (const id of rootBookmarkIds) {
+        await deleteBookmark(id);
+      }
+      
+      // Update state
+      setBookmarks([]);
+      setActiveColumns([[]]);
+      
+      // Close any open dialogs
+      setDialogOpen(false);
+      setEditingBookmark(null);
+      
+      // Clear search results if any
+      setSearchResults([]);
+      setIsSearchActive(false);
+      
+    } catch (error) {
+      console.error("Error deleting bookmarks:", error);
+    }
+  };
+
+  // Handle deleting a specific bookmark
+  const handleDeleteBookmark = async (bookmark: Bookmark) => {
+    try {
+      console.log('Starting to delete bookmark:', bookmark);
+      await deleteBookmark(bookmark.id);
+      console.log('Bookmark deleted from database, reloading bookmarks');
+      
+      // Reload bookmarks from the database to ensure we have the updated state
+      const updatedBookmarks = await loadBookmarks();
+      console.log('Reloaded bookmarks:', updatedBookmarks);
+      setBookmarks(updatedBookmarks);
+      
+      // Update active columns
+      handleUpdateActiveColumns(updatedBookmarks);
+      
+      // Close any open dialogs
+      setDialogOpen(false);
+      setEditingBookmark(null);
+      
+    } catch (error) {
+      console.error("Error deleting bookmark:", error);
+    }
+  };
+
   return (
     <div className="flex flex-col h-screen">
       <header className="h-16 border-b flex items-center justify-between px-6">
@@ -712,6 +765,7 @@ export function BookmarkManager() {
         open={dialogOpen}
         onOpenChange={setDialogOpen}
         onSave={handleSaveBookmark}
+        onDelete={handleDeleteBookmark}
         initialData={editingBookmark?.bookmark}
       />
     </div>
