@@ -7,6 +7,7 @@ import { BookmarkColumn } from "./BookmarkColumn";
 import { BookmarkDialog } from "./BookmarkDialog";
 import { BookmarkMenu } from "./BookmarkMenu";
 import { loadBookmarks, saveBookmarks } from "@/lib/db";
+import { ThemeToggle } from "./ThemeToggle";
 
 const demoBookmarks: Bookmark[] = [
   {
@@ -265,7 +266,8 @@ export function BookmarkManager() {
     <>
       <header className="h-16 border-b flex items-center justify-between px-6">
         <h1 className="text-2xl font-semibold">Bookmarks</h1>
-        <div className="absolute right-4 top-4 z-20">
+        <div className="absolute right-4 top-4 z-20 flex items-center gap-4">
+          <ThemeToggle />
           <BookmarkMenu
             bookmarks={bookmarks}
             onImport={handleImportBookmarks}

@@ -1,3 +1,5 @@
+"use client"
+
 import { MoreVertical } from "lucide-react";
 import {
   DropdownMenu,
@@ -18,6 +20,8 @@ import {
 } from "@/components/ui/alert-dialog";
 import { useState, useRef } from "react";
 import { Bookmark } from "@/types/bookmark";
+import { useTheme } from "next-themes";
+import { loadThemePreference, saveThemePreference } from "@/lib/db";
 
 interface BookmarkMenuProps {
   bookmarks: Bookmark[];
@@ -28,14 +32,22 @@ interface BookmarkMenuProps {
 export function BookmarkMenu({ bookmarks, onImport, onUpdateActiveColumns }: BookmarkMenuProps) {
   const [showImportDialog, setShowImportDialog] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const { setTheme } = useTheme();
 
   const handleExport = () => {
-    const bookmarksJson = JSON.stringify(bookmarks, null, 2);
-    const blob = new Blob([bookmarksJson], { type: "application/json" });
+    const exportData = {
+      bookmarks,
+      preferences: {
+        theme: localStorage.getItem("theme"),
+      },
+    };
+    const blob = new Blob([JSON.stringify(exportData, null, 2)], {
+      type: "application/json",
+    });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = "bookmarks.json";
+    a.download = "bookmarks-export.json";
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
@@ -50,25 +62,30 @@ export function BookmarkMenu({ bookmarks, onImport, onUpdateActiveColumns }: Boo
     fileInputRef.current?.click();
   };
 
-  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleImport = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
 
     const reader = new FileReader();
-    reader.onload = (e) => {
+    reader.onload = async (e) => {
       try {
-        const importedBookmarks = JSON.parse(e.target?.result as string);
-        onImport(importedBookmarks);
-        onUpdateActiveColumns(importedBookmarks);
-        setShowImportDialog(false);
+        const content = e.target?.result as string;
+        const data = JSON.parse(content);
+        
+        if (data.bookmarks) {
+          onImport(data.bookmarks);
+          onUpdateActiveColumns(data.bookmarks);
+        }
+        
+        if (data.preferences?.theme) {
+          setTheme(data.preferences.theme);
+          await saveThemePreference(data.preferences.theme);
+        }
       } catch (error) {
-        console.error("Error parsing bookmarks:", error);
-        // TODO: Show error toast
+        console.error("Error importing bookmarks:", error);
       }
     };
     reader.readAsText(file);
-    // Reset the file input so the same file can be selected again
-    event.target.value = '';
   };
 
   return (
@@ -110,7 +127,7 @@ export function BookmarkMenu({ bookmarks, onImport, onUpdateActiveColumns }: Boo
       <input
         type="file"
         ref={fileInputRef}
-        onChange={handleFileChange}
+        onChange={handleImport}
         accept="application/json"
         className="hidden"
       />
