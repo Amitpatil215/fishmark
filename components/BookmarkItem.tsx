@@ -30,7 +30,7 @@ export function BookmarkItem({
   onEditBookmark,
 }: BookmarkItemProps) {
   const hasChildren = bookmark.children && bookmark.children.length > 0;
-  
+
   const {
     attributes,
     listeners,
@@ -72,9 +72,9 @@ export function BookmarkItem({
       role="button"
       tabIndex={0}
     >
-      <a 
-        href={bookmark.url || "#"} 
-        target="_blank" 
+      <a
+        href={bookmark.url || "#"}
+        target="_blank"
         rel="noopener noreferrer"
         className="flex-1 flex items-center gap-2 min-w-0"
         onClick={handleClick}
@@ -100,7 +100,9 @@ export function BookmarkItem({
 
         <HoverCard>
           <HoverCardTrigger asChild>
-            <span className="font-medium truncate min-w-0 flex-1">{bookmark.title}</span>
+            <span className="font-medium truncate min-w-0 flex-1">
+              {bookmark.title}
+            </span>
           </HoverCardTrigger>
           {bookmark.description && (
             <HoverCardContent className="w-80">
@@ -148,9 +150,6 @@ export function BookmarkItem({
         >
           <Plus className="h-4 w-4" />
         </Button>
-        {hasChildren && (
-          <ChevronRight className="h-4 w-4 text-muted-foreground" />
-        )}
       </div>
     </div>
   );
