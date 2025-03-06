@@ -8,6 +8,7 @@ import { BookmarkDialog } from "./BookmarkDialog";
 import { BookmarkMenu } from "./BookmarkMenu";
 import { loadBookmarks, saveBookmarks } from "@/lib/db";
 import { ThemeToggle } from "./ThemeToggle";
+import { FishSymbol } from "lucide-react";
 
 const demoBookmarks: Bookmark[] = [
   {
@@ -265,7 +266,10 @@ export function BookmarkManager() {
   return (
     <>
       <header className="h-16 border-b flex items-center justify-between px-6">
-        <h1 className="text-2xl font-semibold">Bookmarks</h1>
+        <div className="flex items-center gap-2">
+          <FishSymbol />
+          <h1 className="text-2xl font-semibold">Bookmarks</h1>
+        </div>
         <div className="absolute right-4 top-4 z-20 flex items-center gap-4">
           <ThemeToggle />
           <BookmarkMenu
