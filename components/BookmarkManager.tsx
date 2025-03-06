@@ -100,80 +100,6 @@ export function BookmarkManager() {
       });
   }, [bookmarks]); // Refresh history when bookmarks change
 
-  // Handle keyboard shortcuts for undo/redo
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      // Undo: Ctrl+Z or Cmd+Z
-      if ((e.ctrlKey || e.metaKey) && e.key === "z" && !e.shiftKey) {
-        e.preventDefault();
-        handleUndo();
-      }
-
-      // Redo: Ctrl+Shift+Z or Cmd+Shift+Z or Ctrl+Y or Cmd+Y
-      if (
-        ((e.ctrlKey || e.metaKey) && e.key === "z" && e.shiftKey) ||
-        ((e.ctrlKey || e.metaKey) && e.key === "y")
-      ) {
-        e.preventDefault();
-        handleRedo();
-      }
-    };
-
-    window.addEventListener("keydown", handleKeyDown);
-    return () => {
-      window.removeEventListener("keydown", handleKeyDown);
-    };
-  }, [history, historyIndex]);
-
-  // Handle undo
-  const handleUndo = () => {
-    if (history.length === 0 || historyIndex >= history.length - 1) return;
-
-    const nextIndex = historyIndex + 1;
-    const transaction = history[nextIndex];
-
-    if (!transaction) return;
-
-    // Apply the reverse of the transaction
-    applyReverseTransaction(transaction)
-      .then(() => {
-        setHistoryIndex(nextIndex);
-        // Reload bookmarks to reflect changes
-        return loadBookmarks();
-      })
-      .then((loadedBookmarks) => {
-        setBookmarks(loadedBookmarks);
-        handleUpdateActiveColumns(loadedBookmarks);
-      })
-      .catch((error) => {
-        console.error("Error undoing action:", error);
-      });
-  };
-
-  // Handle redo
-  const handleRedo = () => {
-    if (history.length === 0 || historyIndex < 0) return;
-
-    const transaction = history[historyIndex];
-
-    if (!transaction) return;
-
-    // Apply the transaction
-    applyTransaction(transaction)
-      .then(() => {
-        setHistoryIndex(historyIndex - 1);
-        // Reload bookmarks to reflect changes
-        return loadBookmarks();
-      })
-      .then((loadedBookmarks) => {
-        setBookmarks(loadedBookmarks);
-        handleUpdateActiveColumns(loadedBookmarks);
-      })
-      .catch((error) => {
-        console.error("Error redoing action:", error);
-      });
-  };
-
   // Apply a transaction in reverse (for undo)
   const applyReverseTransaction = async (transaction: any) => {
     const { action, data } = transaction;
@@ -260,9 +186,9 @@ export function BookmarkManager() {
     if (bookmark.children) {
       const newColumns = activeColumns.slice(0, depth + 1);
       // Add parent name to each child bookmark
-      const childrenWithParentName = bookmark.children.map(child => ({
+      const childrenWithParentName = bookmark.children.map((child) => ({
         ...child,
-        parentName: bookmark.title
+        parentName: bookmark.title,
       }));
       newColumns[depth + 1] = childrenWithParentName;
       setActiveColumns(newColumns);
@@ -283,9 +209,9 @@ export function BookmarkManager() {
         // Add parent name to the new bookmark
         const bookmarkWithParent = {
           ...newBookmark,
-          parentName: item.title
+          parentName: item.title,
         };
-        
+
         return {
           ...item,
           children: item.children
@@ -355,7 +281,7 @@ export function BookmarkManager() {
         bookmarkData
       );
       setBookmarks(updatedBookmarks);
-      
+
       // Update active columns while preserving the current navigation state
       const newActiveColumns = activeColumns.map((column, index) => {
         if (index === 0) {
@@ -383,7 +309,7 @@ export function BookmarkManager() {
         newBookmark
       );
       setBookmarks(updatedBookmarks);
-      
+
       // Update active columns while preserving the current navigation state
       const newActiveColumns = activeColumns.map((column, index) => {
         if (index === 0) {
@@ -398,18 +324,21 @@ export function BookmarkManager() {
           return column;
         }
       });
-      
+
       // If we're adding to a specific parent that's visible in the active columns,
       // make sure the new bookmark is visible in the appropriate column
       if (editingBookmark?.parentId) {
         // Find which column contains the parent
-        const parentColumnIndex = newActiveColumns.findIndex(column => 
-          column.some(item => item.id === editingBookmark.parentId)
+        const parentColumnIndex = newActiveColumns.findIndex((column) =>
+          column.some((item) => item.id === editingBookmark.parentId)
         );
-        
+
         if (parentColumnIndex !== -1) {
           // Find the parent in the updated bookmarks
-          const parent = findBookmarkById(updatedBookmarks, editingBookmark.parentId);
+          const parent = findBookmarkById(
+            updatedBookmarks,
+            editingBookmark.parentId
+          );
           if (parent?.children) {
             // Update the next column to show the parent's children (which includes the new bookmark)
             if (parentColumnIndex + 1 < newActiveColumns.length) {
@@ -420,7 +349,7 @@ export function BookmarkManager() {
           }
         }
       }
-      
+
       setActiveColumns(newActiveColumns);
     }
     setEditingBookmark(null);
@@ -658,25 +587,24 @@ export function BookmarkManager() {
   const handleDeleteAllBookmarks = async () => {
     try {
       // Create a copy of all bookmark IDs at the root level
-      const rootBookmarkIds = [...bookmarks].map(bookmark => bookmark.id);
-      
+      const rootBookmarkIds = [...bookmarks].map((bookmark) => bookmark.id);
+
       // Delete each root bookmark (which will cascade to delete all children)
       for (const id of rootBookmarkIds) {
         await deleteBookmark(id);
       }
-      
+
       // Update state
       setBookmarks([]);
       setActiveColumns([[]]);
-      
+
       // Close any open dialogs
       setDialogOpen(false);
       setEditingBookmark(null);
-      
+
       // Clear search results if any
       setSearchResults([]);
       setIsSearchActive(false);
-      
     } catch (error) {
       console.error("Error deleting bookmarks:", error);
     }
@@ -685,22 +613,21 @@ export function BookmarkManager() {
   // Handle deleting a specific bookmark
   const handleDeleteBookmark = async (bookmark: Bookmark) => {
     try {
-      console.log('Starting to delete bookmark:', bookmark);
+      console.log("Starting to delete bookmark:", bookmark);
       await deleteBookmark(bookmark.id);
-      console.log('Bookmark deleted from database, reloading bookmarks');
-      
+      console.log("Bookmark deleted from database, reloading bookmarks");
+
       // Reload bookmarks from the database to ensure we have the updated state
       const updatedBookmarks = await loadBookmarks();
-      console.log('Reloaded bookmarks:', updatedBookmarks);
+      console.log("Reloaded bookmarks:", updatedBookmarks);
       setBookmarks(updatedBookmarks);
-      
+
       // Update active columns
       handleUpdateActiveColumns(updatedBookmarks);
-      
+
       // Close any open dialogs
       setDialogOpen(false);
       setEditingBookmark(null);
-      
     } catch (error) {
       console.error("Error deleting bookmark:", error);
     }
@@ -729,52 +656,6 @@ export function BookmarkManager() {
                 onSelectedIndexChange={handleSelectedIndexChange}
               />
             )}
-          </div>
-          <div className="flex items-center gap-2 mr-4">
-            <button
-              onClick={handleUndo}
-              disabled={
-                history.length === 0 || historyIndex >= history.length - 1
-              }
-              className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed"
-              title="Undo (Ctrl+Z)"
-            >
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                width="16"
-                height="16"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              >
-                <path d="M9 14 4 9l5-5" />
-                <path d="M4 9h10.5a5.5 5.5 0 0 1 5.5 5.5v0a5.5 5.5 0 0 1-5.5 5.5H11" />
-              </svg>
-            </button>
-            <button
-              onClick={handleRedo}
-              disabled={history.length === 0 || historyIndex < 0}
-              className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed"
-              title="Redo (Ctrl+Shift+Z)"
-            >
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                width="16"
-                height="16"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              >
-                <path d="m15 14 5-5-5-5" />
-                <path d="M20 9H9.5A5.5 5.5 0 0 0 4 14.5v0A5.5 5.5 0 0 0 9.5 20H13" />
-              </svg>
-            </button>
           </div>
           <ThemeToggle />
           <BookmarkMenu
