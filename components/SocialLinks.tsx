@@ -187,9 +187,6 @@ export function SocialLinks({ twitterUrl, linkedinUrl }: SocialLinksProps) {
               </div>
             </div>
 
-            <p className="text-sm text-gray-500 mt-6 mb-4">
-              Tip: Right-click on any bookmark or column for additional options.
-            </p>
           </div>
         </DialogContent>
       </Dialog>
