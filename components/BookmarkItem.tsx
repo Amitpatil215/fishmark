@@ -30,19 +30,19 @@ export function BookmarkItem({
   return (
     <div
       className={cn(
-        "group relative flex items-center gap-2 rounded-lg p-2 hover:bg-accent",
+        "group relative flex items-center gap-2 rounded-lg p-2 hover:bg-accent overflow-hidden",
         isActive && "bg-accent"
       )}
       onMouseEnter={() => onHover(bookmark, depth)}
       role="button"
       tabIndex={0}
     >
-      <div className="flex-1 flex items-center gap-2">
+      <div className="flex-1 flex items-center gap-2 min-w-0">
         {bookmark.icon ? (
           <img
             src={bookmark.icon}
             alt=""
-            className="w-4 h-4"
+            className="w-4 h-4 flex-shrink-0"
             onError={(e) => {
               e.currentTarget.style.display = "none";
               e.currentTarget.nextElementSibling?.classList.remove("hidden");
@@ -51,14 +51,14 @@ export function BookmarkItem({
         ) : null}
         <FishSymbol
           className={cn(
-            "h-4 w-4 text-muted-foreground",
+            "h-4 w-4 text-muted-foreground flex-shrink-0",
             bookmark.icon ? "hidden" : ""
           )}
         />
 
         <HoverCard>
           <HoverCardTrigger asChild>
-            <span className="font-medium truncate">{bookmark.title}</span>
+            <span className="font-medium truncate min-w-0 flex-1">{bookmark.title}</span>
           </HoverCardTrigger>
           {bookmark.description && (
             <HoverCardContent className="w-80">
@@ -70,7 +70,7 @@ export function BookmarkItem({
         </HoverCard>
       </div>
 
-      <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+      <div className="flex items-center gap-2 opacity-0 group-hover:opacity-95 transition-opacity absolute right-2 bg-background/80 backdrop-blur-sm p-1 rounded-md">
         {bookmark.url && (
           <Button
             variant="ghost"
