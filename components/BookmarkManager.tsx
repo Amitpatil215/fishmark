@@ -344,7 +344,22 @@ export function BookmarkManager() {
         bookmarkData
       );
       setBookmarks(updatedBookmarks);
-      setActiveColumns([[...updatedBookmarks]]);
+      
+      // Update active columns while preserving the current navigation state
+      const newActiveColumns = activeColumns.map((column, index) => {
+        if (index === 0) {
+          return [...updatedBookmarks];
+        } else {
+          // For each column, find the corresponding parent in the updated bookmarks
+          const parentId = index === 1 ? null : activeColumns[index - 1][0]?.id;
+          if (parentId) {
+            const parent = findBookmarkById(updatedBookmarks, parentId);
+            return parent?.children || column;
+          }
+          return column;
+        }
+      });
+      setActiveColumns(newActiveColumns);
     } else {
       // Add new bookmark
       const newBookmark: Bookmark = {
@@ -357,7 +372,45 @@ export function BookmarkManager() {
         newBookmark
       );
       setBookmarks(updatedBookmarks);
-      setActiveColumns([[...updatedBookmarks]]);
+      
+      // Update active columns while preserving the current navigation state
+      const newActiveColumns = activeColumns.map((column, index) => {
+        if (index === 0) {
+          return [...updatedBookmarks];
+        } else {
+          // For each column, find the corresponding parent in the updated bookmarks
+          const parentId = index === 1 ? null : activeColumns[index - 1][0]?.id;
+          if (parentId) {
+            const parent = findBookmarkById(updatedBookmarks, parentId);
+            return parent?.children || column;
+          }
+          return column;
+        }
+      });
+      
+      // If we're adding to a specific parent that's visible in the active columns,
+      // make sure the new bookmark is visible in the appropriate column
+      if (editingBookmark?.parentId) {
+        // Find which column contains the parent
+        const parentColumnIndex = newActiveColumns.findIndex(column => 
+          column.some(item => item.id === editingBookmark.parentId)
+        );
+        
+        if (parentColumnIndex !== -1) {
+          // Find the parent in the updated bookmarks
+          const parent = findBookmarkById(updatedBookmarks, editingBookmark.parentId);
+          if (parent?.children) {
+            // Update the next column to show the parent's children (which includes the new bookmark)
+            if (parentColumnIndex + 1 < newActiveColumns.length) {
+              newActiveColumns[parentColumnIndex + 1] = [...parent.children];
+            } else {
+              newActiveColumns.push([...parent.children]);
+            }
+          }
+        }
+      }
+      
+      setActiveColumns(newActiveColumns);
     }
     setEditingBookmark(null);
   };
