@@ -15,73 +15,20 @@ import { Bookmark, BookmarkFormData } from "@/types/bookmark";
 import { BookmarkColumn } from "./BookmarkColumn";
 import { BookmarkDialog } from "./BookmarkDialog";
 import { BookmarkMenu } from "./BookmarkMenu";
-import { loadBookmarks, saveBookmarks, saveThemePreference, loadThemePreference, reorderBookmark, moveBookmarkToParent, logTransaction, getTransactionHistory } from "@/lib/db";
+import {
+  loadBookmarks,
+  saveBookmarks,
+  saveThemePreference,
+  loadThemePreference,
+  reorderBookmark,
+  moveBookmarkToParent,
+  logTransaction,
+  getTransactionHistory,
+} from "@/lib/db";
 import { ThemeToggle } from "./ThemeToggle";
 import { FishSymbol } from "lucide-react";
-
-const demoBookmarks: Bookmark[] = [
-  {
-    id: "1",
-    title: "Development",
-    url: "https://dev.to",
-    icon: "https://images.unsplash.com/photo-1461749280684-dccba630e2f6?w=32&h=32&fit=crop&auto=format",
-    children: [
-      {
-        id: "1-1",
-        title: "Frontend",
-        url: "https://frontend.com",
-        children: [
-          {
-            id: "1-1-1",
-            title: "React",
-            url: "https://react.dev",
-            description: "React documentation and resources",
-          },
-          {
-            id: "1-1-2",
-            title: "Next.js",
-            url: "https://nextjs.org",
-            description: "The React Framework for the Web",
-          },
-        ],
-      },
-      {
-        id: "1-2",
-        title: "Backend",
-        url: "https://backend.com",
-        children: [
-          {
-            id: "1-2-1",
-            title: "Node.js",
-            url: "https://nodejs.org",
-            description: "Node.js® is a JavaScript runtime",
-          },
-        ],
-      },
-    ],
-  },
-  {
-    id: "2",
-    title: "Design",
-    url: "https://design.com",
-    icon: "https://images.unsplash.com/photo-1470309864661-68328b2cd0a5?w=32&h=32&fit=crop&auto=format",
-    children: [
-      {
-        id: "2-1",
-        title: "UI Resources",
-        url: "https://ui.com",
-        children: [
-          {
-            id: "2-1-1",
-            title: "Figma",
-            url: "https://figma.com",
-            description: "Collaborative interface design tool",
-          },
-        ],
-      },
-    ],
-  },
-];
+import { SearchBar } from "./SearchBar";
+import { SearchResults } from "./SearchResults";
 
 export function BookmarkManager() {
   const [bookmarks, setBookmarks] = useState<Bookmark[]>([]);
@@ -96,6 +43,10 @@ export function BookmarkManager() {
   const scrollIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const [historyIndex, setHistoryIndex] = useState(-1);
   const [history, setHistory] = useState<any[]>([]);
+  const [searchResults, setSearchResults] = useState<Bookmark[]>([]);
+  const [isSearchActive, setIsSearchActive] = useState(false);
+  const [selectedSearchIndex, setSelectedSearchIndex] = useState(-1);
+  const searchContainerRef = useRef<HTMLDivElement>(null);
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -140,10 +91,10 @@ export function BookmarkManager() {
   // Load history for undo/redo
   useEffect(() => {
     getTransactionHistory()
-      .then(history => {
+      .then((history) => {
         setHistory(history);
       })
-      .catch(error => {
+      .catch((error) => {
         console.error("Error loading history:", error);
       });
   }, [bookmarks]); // Refresh history when bookmarks change
@@ -152,34 +103,36 @@ export function BookmarkManager() {
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       // Undo: Ctrl+Z or Cmd+Z
-      if ((e.ctrlKey || e.metaKey) && e.key === 'z' && !e.shiftKey) {
+      if ((e.ctrlKey || e.metaKey) && e.key === "z" && !e.shiftKey) {
         e.preventDefault();
         handleUndo();
       }
-      
+
       // Redo: Ctrl+Shift+Z or Cmd+Shift+Z or Ctrl+Y or Cmd+Y
-      if (((e.ctrlKey || e.metaKey) && e.key === 'z' && e.shiftKey) || 
-          ((e.ctrlKey || e.metaKey) && e.key === 'y')) {
+      if (
+        ((e.ctrlKey || e.metaKey) && e.key === "z" && e.shiftKey) ||
+        ((e.ctrlKey || e.metaKey) && e.key === "y")
+      ) {
         e.preventDefault();
         handleRedo();
       }
     };
-    
-    window.addEventListener('keydown', handleKeyDown);
+
+    window.addEventListener("keydown", handleKeyDown);
     return () => {
-      window.removeEventListener('keydown', handleKeyDown);
+      window.removeEventListener("keydown", handleKeyDown);
     };
   }, [history, historyIndex]);
 
   // Handle undo
   const handleUndo = () => {
     if (history.length === 0 || historyIndex >= history.length - 1) return;
-    
+
     const nextIndex = historyIndex + 1;
     const transaction = history[nextIndex];
-    
+
     if (!transaction) return;
-    
+
     // Apply the reverse of the transaction
     applyReverseTransaction(transaction)
       .then(() => {
@@ -187,23 +140,23 @@ export function BookmarkManager() {
         // Reload bookmarks to reflect changes
         return loadBookmarks();
       })
-      .then(loadedBookmarks => {
+      .then((loadedBookmarks) => {
         setBookmarks(loadedBookmarks);
         handleUpdateActiveColumns(loadedBookmarks);
       })
-      .catch(error => {
+      .catch((error) => {
         console.error("Error undoing action:", error);
       });
   };
-  
+
   // Handle redo
   const handleRedo = () => {
     if (history.length === 0 || historyIndex < 0) return;
-    
+
     const transaction = history[historyIndex];
-    
+
     if (!transaction) return;
-    
+
     // Apply the transaction
     applyTransaction(transaction)
       .then(() => {
@@ -211,19 +164,19 @@ export function BookmarkManager() {
         // Reload bookmarks to reflect changes
         return loadBookmarks();
       })
-      .then(loadedBookmarks => {
+      .then((loadedBookmarks) => {
         setBookmarks(loadedBookmarks);
         handleUpdateActiveColumns(loadedBookmarks);
       })
-      .catch(error => {
+      .catch((error) => {
         console.error("Error redoing action:", error);
       });
   };
-  
+
   // Apply a transaction in reverse (for undo)
   const applyReverseTransaction = async (transaction: any) => {
     const { action, data } = transaction;
-    
+
     switch (action) {
       case "moveBookmark":
         // Move the bookmark back to its original parent
@@ -233,27 +186,23 @@ export function BookmarkManager() {
           data.oldIndex || 0
         );
         break;
-        
+
       case "reorderBookmark":
         // Reorder the bookmark back to its original position
-        await reorderBookmark(
-          data.bookmarkId,
-          data.oldIndex,
-          data.parentId
-        );
+        await reorderBookmark(data.bookmarkId, data.oldIndex, data.parentId);
         break;
-        
+
       // Add cases for other transaction types as needed
-      
+
       default:
         console.warn("Unknown transaction type:", action);
     }
   };
-  
+
   // Apply a transaction (for redo)
   const applyTransaction = async (transaction: any) => {
     const { action, data } = transaction;
-    
+
     switch (action) {
       case "moveBookmark":
         // Move the bookmark to its new parent
@@ -263,18 +212,14 @@ export function BookmarkManager() {
           data.newIndex || 0
         );
         break;
-        
+
       case "reorderBookmark":
         // Reorder the bookmark to its new position
-        await reorderBookmark(
-          data.bookmarkId,
-          data.newIndex,
-          data.parentId
-        );
+        await reorderBookmark(data.bookmarkId, data.newIndex, data.parentId);
         break;
-        
+
       // Add cases for other transaction types as needed
-      
+
       default:
         console.warn("Unknown transaction type:", action);
     }
@@ -463,20 +408,22 @@ export function BookmarkManager() {
 
   const handleDragEnd = (event: DragEndEvent) => {
     const { active, over } = event;
-    
+
     if (!over) return;
 
     if (active.id !== over.id) {
       // Safely access containerId with fallbacks
-      const activeContainer = active.data.current?.sortable?.containerId || 'unknown';
-      const overContainer = over.data.current?.sortable?.containerId || 'unknown';
-      
+      const activeContainer =
+        active.data.current?.sortable?.containerId || "unknown";
+      const overContainer =
+        over.data.current?.sortable?.containerId || "unknown";
+
       // If either container is unknown, we can't safely proceed with the drag
-      if (activeContainer === 'unknown' || overContainer === 'unknown') {
-        console.warn('Unable to determine container for drag operation');
+      if (activeContainer === "unknown" || overContainer === "unknown") {
+        console.warn("Unable to determine container for drag operation");
         return;
       }
-      
+
       // Only allow reordering within the same container
       if (activeContainer === overContainer) {
         const items = findBookmarkListById(bookmarks, activeContainer);
@@ -488,13 +435,13 @@ export function BookmarkManager() {
         const newItems = arrayMove(items, oldIndex, newIndex);
 
         // If we're reordering in a nested column, we need to update the active columns
-        const columnIndex = activeColumns.findIndex(column => 
-          column.some(item => item.id === active.id)
+        const columnIndex = activeColumns.findIndex((column) =>
+          column.some((item) => item.id === active.id)
         );
 
         // Find the parent ID for this container
         let parentId: string | null = null;
-        if (activeContainer !== 'root') {
+        if (activeContainer !== "root") {
           // The container ID is the parent bookmark's ID
           parentId = activeContainer;
         }
@@ -507,9 +454,9 @@ export function BookmarkManager() {
               bookmarkId: active.id,
               parentId,
               oldIndex,
-              newIndex
+              newIndex,
             });
-            
+
             if (columnIndex > 0) {
               // For nested columns, update both the main bookmark tree and active columns
               const newBookmarks = updateBookmarkListById(
@@ -529,7 +476,7 @@ export function BookmarkManager() {
               setActiveColumns([[...newItems]]);
             }
           })
-          .catch(error => {
+          .catch((error) => {
             console.error("Error reordering bookmark:", error);
           });
       } else {
@@ -540,7 +487,10 @@ export function BookmarkManager() {
   };
 
   // Helper function to find a bookmark by ID
-  const findBookmarkById = (items: Bookmark[], id: string): Bookmark | undefined => {
+  const findBookmarkById = (
+    items: Bookmark[],
+    id: string
+  ): Bookmark | undefined => {
     for (const item of items) {
       if (item.id === id) {
         return item;
@@ -555,24 +505,135 @@ export function BookmarkManager() {
     return undefined;
   };
 
+  // Handle clicking outside of search results
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (
+        searchContainerRef.current &&
+        !searchContainerRef.current.contains(event.target as Node) &&
+        searchResults.length > 0
+      ) {
+        setSearchResults([]);
+        setIsSearchActive(false);
+        setSelectedSearchIndex(-1);
+      }
+    };
+
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, [searchResults]);
+
+  const handleSearchResults = (results: Bookmark[]) => {
+    setSearchResults(results);
+    setIsSearchActive(results.length > 0);
+    setSelectedSearchIndex(results.length > 0 ? 0 : -1);
+  };
+
+  const handleSelectedIndexChange = (index: number) => {
+    setSelectedSearchIndex(index);
+  };
+
+  const handleSelectSearchResult = (bookmark: Bookmark) => {
+    // Find the path to the bookmark
+    const path = findPathToBookmark(bookmarks, bookmark.id);
+
+    if (path.length > 0) {
+      // Build the active columns based on the path
+      const newActiveColumns: Bookmark[][] = [];
+
+      // First column is always the root bookmarks
+      newActiveColumns.push([...bookmarks]);
+
+      // Add each level of the path
+      let currentItems = bookmarks;
+      for (let i = 0; i < path.length - 1; i++) {
+        const bookmark = findBookmarkById(currentItems, path[i]);
+        if (bookmark && bookmark.children) {
+          newActiveColumns.push([...bookmark.children]);
+          currentItems = bookmark.children;
+        }
+      }
+
+      setActiveColumns(newActiveColumns);
+      setSearchResults([]);
+      setIsSearchActive(false);
+      setSelectedSearchIndex(-1);
+    }
+  };
+
+  // Function to find the path to a bookmark
+  const findPathToBookmark = (
+    items: Bookmark[],
+    id: string,
+    path: string[] = []
+  ): string[] => {
+    for (const item of items) {
+      if (item.id === id) {
+        return [...path, item.id];
+      }
+
+      if (item.children && item.children.length > 0) {
+        const childPath = findPathToBookmark(item.children, id, [
+          ...path,
+          item.id,
+        ]);
+        if (childPath.length > 0) {
+          return childPath;
+        }
+      }
+    }
+
+    return [];
+  };
+
   return (
-    <>
+    <div className="flex flex-col h-screen">
       <header className="h-16 border-b flex items-center justify-between px-6">
         <div className="flex items-center gap-2">
           <FishSymbol />
           <h1 className="text-2xl font-semibold">Bookmarks</h1>
         </div>
-        <div className="absolute right-4 top-4 z-20 flex items-center gap-4">
+        <div className="flex items-center gap-4">
+          <div ref={searchContainerRef} className="relative">
+            <SearchBar
+              bookmarks={bookmarks}
+              onSearchResults={handleSearchResults}
+              onSelectBookmark={handleSelectSearchResult}
+              onSelectedIndexChange={handleSelectedIndexChange}
+            />
+            {isSearchActive && (
+              <SearchResults
+                results={searchResults}
+                onSelectBookmark={handleSelectSearchResult}
+                selectedIndex={selectedSearchIndex}
+                onSelectedIndexChange={handleSelectedIndexChange}
+              />
+            )}
+          </div>
           <div className="flex items-center gap-2 mr-4">
             <button
               onClick={handleUndo}
-              disabled={history.length === 0 || historyIndex >= history.length - 1}
+              disabled={
+                history.length === 0 || historyIndex >= history.length - 1
+              }
               className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed"
               title="Undo (Ctrl+Z)"
             >
-              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M9 14 4 9l5-5"/>
-                <path d="M4 9h10.5a5.5 5.5 0 0 1 5.5 5.5v0a5.5 5.5 0 0 1-5.5 5.5H11"/>
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                width="16"
+                height="16"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <path d="M9 14 4 9l5-5" />
+                <path d="M4 9h10.5a5.5 5.5 0 0 1 5.5 5.5v0a5.5 5.5 0 0 1-5.5 5.5H11" />
               </svg>
             </button>
             <button
@@ -581,9 +642,19 @@ export function BookmarkManager() {
               className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed"
               title="Redo (Ctrl+Shift+Z)"
             >
-              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="m15 14 5-5-5-5"/>
-                <path d="M20 9H9.5A5.5 5.5 0 0 0 4 14.5v0A5.5 5.5 0 0 0 9.5 20H13"/>
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                width="16"
+                height="16"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <path d="m15 14 5-5-5-5" />
+                <path d="M20 9H9.5A5.5 5.5 0 0 0 4 14.5v0A5.5 5.5 0 0 0 9.5 20H13" />
               </svg>
             </button>
           </div>
@@ -595,7 +666,8 @@ export function BookmarkManager() {
           />
         </div>
       </header>
-      <DndContext 
+
+      <DndContext
         sensors={sensors}
         collisionDetection={closestCenter}
         onDragEnd={handleDragEnd}
@@ -626,19 +698,22 @@ export function BookmarkManager() {
                   activeColumns={activeColumns}
                   onAddBookmark={handleAddBookmark}
                   onEditBookmark={handleEditBookmark}
-                  columnId={index === 0 ? "root" : activeColumns[index - 1]?.[0]?.id}
+                  columnId={
+                    index === 0 ? "root" : activeColumns[index - 1]?.[0]?.id
+                  }
                 />
               ))}
             </AnimatePresence>
           </div>
         </div>
       </DndContext>
+
       <BookmarkDialog
         open={dialogOpen}
         onOpenChange={setDialogOpen}
         onSave={handleSaveBookmark}
         initialData={editingBookmark?.bookmark}
       />
-    </>
+    </div>
   );
 }
