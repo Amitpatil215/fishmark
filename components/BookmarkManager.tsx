@@ -30,6 +30,7 @@ import { ThemeToggle } from "./ThemeToggle";
 import { FishSymbol } from "lucide-react";
 import { SearchBar } from "./SearchBar";
 import { SearchResults } from "./SearchResults";
+import { SocialLinks } from './SocialLinks';
 
 export function BookmarkManager() {
   const [bookmarks, setBookmarks] = useState<Bookmark[]>([]);
@@ -638,9 +639,13 @@ export function BookmarkManager() {
       <header className="h-16 border-b flex items-center justify-between px-6">
         <div className="flex items-center gap-2">
           <FishSymbol />
-          <h1 className="text-2xl font-semibold">Bookmarks</h1>
+          <h1 className="text-2xl font-semibold">Fishmark</h1>
         </div>
         <div className="flex items-center gap-4">
+          <SocialLinks 
+            twitterUrl="https://x.com/amiit_fyi"
+            linkedinUrl="https://www.linkedin.com/in/amitgpatil215/"
+          />
           <div ref={searchContainerRef} className="relative">
             <SearchBar
               bookmarks={bookmarks}
