@@ -100,7 +100,7 @@ export function BookmarkItem({
 
         <HoverCard>
           <HoverCardTrigger asChild>
-            <span className="font-medium truncate min-w-0 flex-1">
+            <span className="text-sm truncate min-w-0 flex-1">
               {bookmark.title}
             </span>
           </HoverCardTrigger>
