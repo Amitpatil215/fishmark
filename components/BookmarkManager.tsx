@@ -5,6 +5,7 @@ import { AnimatePresence } from 'framer-motion';
 import { Bookmark, BookmarkFormData } from '@/types/bookmark';
 import { BookmarkColumn } from './BookmarkColumn';
 import { BookmarkDialog } from './BookmarkDialog';
+import { BookmarkMenu } from './BookmarkMenu';
 import { loadBookmarks, saveBookmarks } from '@/lib/db';
 
 const demoBookmarks: Bookmark[] = [
@@ -250,9 +251,24 @@ export function BookmarkManager() {
     setEditingBookmark(null);
   };
 
+  const handleImportBookmarks = (importedBookmarks: Bookmark[]) => {
+    setBookmarks(importedBookmarks);
+  };
+
+  const handleUpdateActiveColumns = (importedBookmarks: Bookmark[]) => {
+    setActiveColumns([[...importedBookmarks]]);
+  };
+
   return (
     <>
       <div className="h-[calc(100vh-4rem)] flex relative">
+        <div className="absolute right-4 top-4 z-20">
+          <BookmarkMenu 
+            bookmarks={bookmarks} 
+            onImport={handleImportBookmarks}
+            onUpdateActiveColumns={handleUpdateActiveColumns}
+          />
+        </div>
         <div
           className="absolute left-0 top-0 bottom-0 w-16 z-10"
           onMouseEnter={() => handleScroll('left')}
