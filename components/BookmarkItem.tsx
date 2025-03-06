@@ -20,6 +20,15 @@ import {
 } from "@/components/ui/hover-card";
 import { useState } from "react";
 
+// Status bar component
+function StatusBar({ url }: { url: string }) {
+  return (
+    <div className="fixed bottom-0 left-0 truncate h-6 bg-muted/50 backdrop-blur-sm text-xs text-muted-foreground z-50 w-full flex items-center px-2 border-t">
+      {url}
+    </div>
+  );
+}
+
 export function BookmarkItem({
   bookmark,
   depth,
@@ -29,6 +38,7 @@ export function BookmarkItem({
   onAddBookmark,
   onEditBookmark,
 }: BookmarkItemProps) {
+  const [isHovered, setIsHovered] = useState(false);
   const hasChildren = bookmark.children && bookmark.children.length > 0;
 
   const {
@@ -68,17 +78,19 @@ export function BookmarkItem({
         isActive && "bg-accent",
         isDragging && "shadow-lg bg-accent/50"
       )}
-      onMouseEnter={() => onHover(bookmark, depth)}
+      onMouseEnter={() => {
+        onHover(bookmark, depth);
+        setIsHovered(true);
+      }}
+      onMouseLeave={() => setIsHovered(false)}
       role="button"
       tabIndex={0}
     >
-      <a
-        href={bookmark.url || "#"}
-        target="_blank"
-        rel="noopener noreferrer"
+      <div
         className="flex-1 flex items-center gap-2 min-w-0"
         onClick={handleClick}
         onDoubleClick={handleDoubleClick}
+        data-url={bookmark.url || "#"}
       >
         {bookmark.icon ? (
           <img
@@ -112,21 +124,23 @@ export function BookmarkItem({
             </HoverCardContent>
           )}
         </HoverCard>
-      </a>
+      </div>
 
       <div className="flex items-center gap-2 opacity-0 group-hover:opacity-95 transition-opacity absolute right-2 bg-background/80 backdrop-blur-sm p-1 rounded-md">
         {bookmark.url && (
-          <a
-            href={bookmark.url}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex items-center justify-center h-8 w-8 rounded-md text-sm font-medium ring-offset-background transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-8 w-8"
             onClick={(e) => {
               e.stopPropagation();
+              if (bookmark.url) {
+                window.open(bookmark.url, "_blank");
+              }
             }}
           >
             <ExternalLink className="h-4 w-4" />
-          </a>
+          </Button>
         )}
         <Button
           variant="ghost"
@@ -151,6 +165,7 @@ export function BookmarkItem({
           <Plus className="h-4 w-4" />
         </Button>
       </div>
+      {isHovered && bookmark.url && <StatusBar url={bookmark.url} />}
     </div>
   );
 }
