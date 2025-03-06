@@ -15,7 +15,7 @@ import { Bookmark, BookmarkFormData } from "@/types/bookmark";
 import { BookmarkColumn } from "./BookmarkColumn";
 import { BookmarkDialog } from "./BookmarkDialog";
 import { BookmarkMenu } from "./BookmarkMenu";
-import { loadBookmarks, saveBookmarks } from "@/lib/db";
+import { loadBookmarks, saveBookmarks, saveThemePreference, loadThemePreference, reorderBookmark, moveBookmarkToParent, logTransaction, getTransactionHistory } from "@/lib/db";
 import { ThemeToggle } from "./ThemeToggle";
 import { FishSymbol } from "lucide-react";
 
@@ -91,10 +91,11 @@ export function BookmarkManager() {
     bookmark?: Bookmark;
     parentId: string | null;
   } | null>(null);
-
-  const containerRef = useRef<HTMLDivElement>(null);
   const [isScrolling, setIsScrolling] = useState(false);
-  const scrollIntervalRef = useRef<NodeJS.Timeout>();
+  const containerRef = useRef<HTMLDivElement>(null);
+  const scrollIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const [historyIndex, setHistoryIndex] = useState(-1);
+  const [history, setHistory] = useState<any[]>([]);
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -113,17 +114,17 @@ export function BookmarkManager() {
           setActiveColumns([[...loadedBookmarks]]);
         } else {
           // If no bookmarks in IndexedDB, use demo bookmarks
-          setBookmarks(demoBookmarks);
-          setActiveColumns([[...demoBookmarks]]);
-          // Save demo bookmarks to IndexedDB
-          saveBookmarks(demoBookmarks);
+          // setBookmarks(demoBookmarks);
+          // setActiveColumns([[...demoBookmarks]]);
+          // // Save demo bookmarks to IndexedDB
+          // saveBookmarks(demoBookmarks);
         }
       })
       .catch((error) => {
         console.error("Error loading bookmarks:", error);
         // Fallback to demo bookmarks
-        setBookmarks(demoBookmarks);
-        setActiveColumns([[...demoBookmarks]]);
+        // setBookmarks(demoBookmarks);
+        // setActiveColumns([[...demoBookmarks]]);
       });
   }, []);
 
@@ -135,6 +136,149 @@ export function BookmarkManager() {
       });
     }
   }, [bookmarks]);
+
+  // Load history for undo/redo
+  useEffect(() => {
+    getTransactionHistory()
+      .then(history => {
+        setHistory(history);
+      })
+      .catch(error => {
+        console.error("Error loading history:", error);
+      });
+  }, [bookmarks]); // Refresh history when bookmarks change
+
+  // Handle keyboard shortcuts for undo/redo
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Undo: Ctrl+Z or Cmd+Z
+      if ((e.ctrlKey || e.metaKey) && e.key === 'z' && !e.shiftKey) {
+        e.preventDefault();
+        handleUndo();
+      }
+      
+      // Redo: Ctrl+Shift+Z or Cmd+Shift+Z or Ctrl+Y or Cmd+Y
+      if (((e.ctrlKey || e.metaKey) && e.key === 'z' && e.shiftKey) || 
+          ((e.ctrlKey || e.metaKey) && e.key === 'y')) {
+        e.preventDefault();
+        handleRedo();
+      }
+    };
+    
+    window.addEventListener('keydown', handleKeyDown);
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [history, historyIndex]);
+
+  // Handle undo
+  const handleUndo = () => {
+    if (history.length === 0 || historyIndex >= history.length - 1) return;
+    
+    const nextIndex = historyIndex + 1;
+    const transaction = history[nextIndex];
+    
+    if (!transaction) return;
+    
+    // Apply the reverse of the transaction
+    applyReverseTransaction(transaction)
+      .then(() => {
+        setHistoryIndex(nextIndex);
+        // Reload bookmarks to reflect changes
+        return loadBookmarks();
+      })
+      .then(loadedBookmarks => {
+        setBookmarks(loadedBookmarks);
+        handleUpdateActiveColumns(loadedBookmarks);
+      })
+      .catch(error => {
+        console.error("Error undoing action:", error);
+      });
+  };
+  
+  // Handle redo
+  const handleRedo = () => {
+    if (history.length === 0 || historyIndex < 0) return;
+    
+    const transaction = history[historyIndex];
+    
+    if (!transaction) return;
+    
+    // Apply the transaction
+    applyTransaction(transaction)
+      .then(() => {
+        setHistoryIndex(historyIndex - 1);
+        // Reload bookmarks to reflect changes
+        return loadBookmarks();
+      })
+      .then(loadedBookmarks => {
+        setBookmarks(loadedBookmarks);
+        handleUpdateActiveColumns(loadedBookmarks);
+      })
+      .catch(error => {
+        console.error("Error redoing action:", error);
+      });
+  };
+  
+  // Apply a transaction in reverse (for undo)
+  const applyReverseTransaction = async (transaction: any) => {
+    const { action, data } = transaction;
+    
+    switch (action) {
+      case "moveBookmark":
+        // Move the bookmark back to its original parent
+        await moveBookmarkToParent(
+          data.bookmarkId,
+          data.oldParentId,
+          data.oldIndex || 0
+        );
+        break;
+        
+      case "reorderBookmark":
+        // Reorder the bookmark back to its original position
+        await reorderBookmark(
+          data.bookmarkId,
+          data.oldIndex,
+          data.parentId
+        );
+        break;
+        
+      // Add cases for other transaction types as needed
+      
+      default:
+        console.warn("Unknown transaction type:", action);
+    }
+  };
+  
+  // Apply a transaction (for redo)
+  const applyTransaction = async (transaction: any) => {
+    const { action, data } = transaction;
+    
+    switch (action) {
+      case "moveBookmark":
+        // Move the bookmark to its new parent
+        await moveBookmarkToParent(
+          data.bookmarkId,
+          data.newParentId,
+          data.newIndex || 0
+        );
+        break;
+        
+      case "reorderBookmark":
+        // Reorder the bookmark to its new position
+        await reorderBookmark(
+          data.bookmarkId,
+          data.newIndex,
+          data.parentId
+        );
+        break;
+        
+      // Add cases for other transaction types as needed
+      
+      default:
+        console.warn("Unknown transaction type:", action);
+    }
+  };
 
   const handleScroll = (direction: "left" | "right") => {
     if (!containerRef.current || isScrolling) return;
@@ -323,9 +467,17 @@ export function BookmarkManager() {
     if (!over) return;
 
     if (active.id !== over.id) {
-      const activeContainer = active.data.current?.sortable.containerId;
-      const overContainer = over.data.current?.sortable.containerId;
+      // Safely access containerId with fallbacks
+      const activeContainer = active.data.current?.sortable?.containerId || 'unknown';
+      const overContainer = over.data.current?.sortable?.containerId || 'unknown';
       
+      // If either container is unknown, we can't safely proceed with the drag
+      if (activeContainer === 'unknown' || overContainer === 'unknown') {
+        console.warn('Unable to determine container for drag operation');
+        return;
+      }
+      
+      // Only allow reordering within the same container
       if (activeContainer === overContainer) {
         const items = findBookmarkListById(bookmarks, activeContainer);
         if (!items) return;
@@ -340,26 +492,67 @@ export function BookmarkManager() {
           column.some(item => item.id === active.id)
         );
 
-        if (columnIndex > 0) {
-          // For nested columns, update both the main bookmark tree and active columns
-          const newBookmarks = updateBookmarkListById(
-            bookmarks,
-            activeContainer,
-            newItems
-          );
+        // Find the parent ID for this container
+        let parentId: string | null = null;
+        if (activeContainer !== 'root') {
+          // The container ID is the parent bookmark's ID
+          parentId = activeContainer;
+        }
 
-          const newActiveColumns = [...activeColumns];
-          newActiveColumns[columnIndex] = newItems;
+        // Use the reorderBookmark function to update the database
+        reorderBookmark(active.id as string, newIndex, parentId)
+          .then(() => {
+            // Log the transaction for undo/redo
+            logTransaction("reorderBookmark", {
+              bookmarkId: active.id,
+              parentId,
+              oldIndex,
+              newIndex
+            });
+            
+            if (columnIndex > 0) {
+              // For nested columns, update both the main bookmark tree and active columns
+              const newBookmarks = updateBookmarkListById(
+                bookmarks,
+                activeContainer,
+                newItems
+              );
 
-          setBookmarks(newBookmarks);
-          setActiveColumns(newActiveColumns);
-        } else {
-          // For the root column, just update everything
-          setBookmarks(newItems);
-          setActiveColumns([[...newItems]]);
+              const newActiveColumns = [...activeColumns];
+              newActiveColumns[columnIndex] = newItems;
+
+              setBookmarks(newBookmarks);
+              setActiveColumns(newActiveColumns);
+            } else {
+              // For the root column, just update everything
+              setBookmarks(newItems);
+              setActiveColumns([[...newItems]]);
+            }
+          })
+          .catch(error => {
+            console.error("Error reordering bookmark:", error);
+          });
+      } else {
+        // If containers are different, show a more helpful message
+        console.log("Dragging between different containers is not supported");
+      }
+    }
+  };
+
+  // Helper function to find a bookmark by ID
+  const findBookmarkById = (items: Bookmark[], id: string): Bookmark | undefined => {
+    for (const item of items) {
+      if (item.id === id) {
+        return item;
+      }
+      if (item.children && item.children.length > 0) {
+        const found = findBookmarkById(item.children, id);
+        if (found) {
+          return found;
         }
       }
     }
+    return undefined;
   };
 
   return (
@@ -370,6 +563,30 @@ export function BookmarkManager() {
           <h1 className="text-2xl font-semibold">Bookmarks</h1>
         </div>
         <div className="absolute right-4 top-4 z-20 flex items-center gap-4">
+          <div className="flex items-center gap-2 mr-4">
+            <button
+              onClick={handleUndo}
+              disabled={history.length === 0 || historyIndex >= history.length - 1}
+              className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed"
+              title="Undo (Ctrl+Z)"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M9 14 4 9l5-5"/>
+                <path d="M4 9h10.5a5.5 5.5 0 0 1 5.5 5.5v0a5.5 5.5 0 0 1-5.5 5.5H11"/>
+              </svg>
+            </button>
+            <button
+              onClick={handleRedo}
+              disabled={history.length === 0 || historyIndex < 0}
+              className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed"
+              title="Redo (Ctrl+Shift+Z)"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="m15 14 5-5-5-5"/>
+                <path d="M20 9H9.5A5.5 5.5 0 0 0 4 14.5v0A5.5 5.5 0 0 0 9.5 20H13"/>
+              </svg>
+            </button>
+          </div>
           <ThemeToggle />
           <BookmarkMenu
             bookmarks={bookmarks}
