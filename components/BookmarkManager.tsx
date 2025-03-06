@@ -1,0 +1,247 @@
+'use client';
+
+import { useState, useRef, useEffect } from 'react';
+import { AnimatePresence } from 'framer-motion';
+import { Bookmark, BookmarkFormData } from '@/types/bookmark';
+import { BookmarkColumn } from './BookmarkColumn';
+import { BookmarkDialog } from './BookmarkDialog';
+
+const demoBookmarks: Bookmark[] = [
+  {
+    id: '1',
+    title: 'Development',
+    url: 'https://dev.to',
+    icon: 'https://images.unsplash.com/photo-1461749280684-dccba630e2f6?w=32&h=32&fit=crop&auto=format',
+    children: [
+      {
+        id: '1-1',
+        title: 'Frontend',
+        url: 'https://frontend.com',
+        children: [
+          {
+            id: '1-1-1',
+            title: 'React',
+            url: 'https://react.dev',
+            description: 'React documentation and resources'
+          },
+          {
+            id: '1-1-2',
+            title: 'Next.js',
+            url: 'https://nextjs.org',
+            description: 'The React Framework for the Web'
+          }
+        ]
+      },
+      {
+        id: '1-2',
+        title: 'Backend',
+        url: 'https://backend.com',
+        children: [
+          {
+            id: '1-2-1',
+            title: 'Node.js',
+            url: 'https://nodejs.org',
+            description: 'Node.js® is a JavaScript runtime'
+          }
+        ]
+      }
+    ]
+  },
+  {
+    id: '2',
+    title: 'Design',
+    url: 'https://design.com',
+    icon: 'https://images.unsplash.com/photo-1470309864661-68328b2cd0a5?w=32&h=32&fit=crop&auto=format',
+    children: [
+      {
+        id: '2-1',
+        title: 'UI Resources',
+        url: 'https://ui.com',
+        children: [
+          {
+            id: '2-1-1',
+            title: 'Figma',
+            url: 'https://figma.com',
+            description: 'Collaborative interface design tool'
+          }
+        ]
+      }
+    ]
+  }
+];
+
+export function BookmarkManager() {
+  const [bookmarks, setBookmarks] = useState<Bookmark[]>(demoBookmarks);
+  const [activeColumns, setActiveColumns] = useState<Bookmark[][]>([[...bookmarks]]);
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [editingBookmark, setEditingBookmark] = useState<{
+    bookmark?: Bookmark;
+    parentId: string | null;
+  } | null>(null);
+  
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [isScrolling, setIsScrolling] = useState(false);
+  const scrollIntervalRef = useRef<NodeJS.Timeout>();
+
+  const handleScroll = (direction: 'left' | 'right') => {
+    if (!containerRef.current || isScrolling) return;
+
+    const container = containerRef.current;
+    const scrollAmount = 100;
+    
+    setIsScrolling(true);
+    scrollIntervalRef.current = setInterval(() => {
+      container.scrollBy({
+        left: direction === 'left' ? -scrollAmount : scrollAmount,
+        behavior: 'smooth'
+      });
+    }, 200);
+  };
+
+  const stopScroll = () => {
+    if (scrollIntervalRef.current) {
+      clearInterval(scrollIntervalRef.current);
+      setIsScrolling(false);
+    }
+  };
+
+  useEffect(() => {
+    return () => {
+      if (scrollIntervalRef.current) {
+        clearInterval(scrollIntervalRef.current);
+      }
+    };
+  }, []);
+
+  const handleHover = (bookmark: Bookmark, depth: number) => {
+    if (bookmark.children) {
+      const newColumns = activeColumns.slice(0, depth + 1);
+      newColumns[depth + 1] = bookmark.children;
+      setActiveColumns(newColumns);
+    }
+  };
+
+  const addBookmarkToTree = (
+    items: Bookmark[],
+    parentId: string | null,
+    newBookmark: Bookmark
+  ): Bookmark[] => {
+    if (!parentId) {
+      return [...items, newBookmark];
+    }
+
+    return items.map((item) => {
+      if (item.id === parentId) {
+        return {
+          ...item,
+          children: item.children ? [...item.children, newBookmark] : [newBookmark],
+        };
+      }
+      if (item.children) {
+        return {
+          ...item,
+          children: addBookmarkToTree(item.children, parentId, newBookmark),
+        };
+      }
+      return item;
+    });
+  };
+
+  const updateBookmarkInTree = (
+    items: Bookmark[],
+    bookmarkId: string,
+    updates: Partial<Bookmark>
+  ): Bookmark[] => {
+    return items.map((item) => {
+      if (item.id === bookmarkId) {
+        return { ...item, ...updates };
+      }
+      if (item.children) {
+        return {
+          ...item,
+          children: updateBookmarkInTree(item.children, bookmarkId, updates),
+        };
+      }
+      return item;
+    });
+  };
+
+  const handleAddBookmark = (parentId: string | null) => {
+    setEditingBookmark({ parentId });
+    setDialogOpen(true);
+  };
+
+  const handleEditBookmark = (bookmark: Bookmark) => {
+    setEditingBookmark({ bookmark, parentId: null });
+    setDialogOpen(true);
+  };
+
+  const handleSaveBookmark = (formData: BookmarkFormData) => {
+    if (editingBookmark?.bookmark) {
+      // Edit existing bookmark
+      const updatedBookmarks = updateBookmarkInTree(
+        bookmarks,
+        editingBookmark.bookmark.id,
+        formData
+      );
+      setBookmarks(updatedBookmarks);
+      setActiveColumns([[...updatedBookmarks]]);
+    } else {
+      // Add new bookmark
+      const newBookmark: Bookmark = {
+        id: Math.random().toString(36).substr(2, 9),
+        ...formData,
+      };
+      const updatedBookmarks = addBookmarkToTree(
+        bookmarks,
+        editingBookmark?.parentId || null,
+        newBookmark
+      );
+      setBookmarks(updatedBookmarks);
+      setActiveColumns([[...updatedBookmarks]]);
+    }
+    setEditingBookmark(null);
+  };
+
+  return (
+    <>
+      <div className="h-[calc(100vh-4rem)] flex relative">
+        <div
+          className="absolute left-0 top-0 bottom-0 w-16 z-10"
+          onMouseEnter={() => handleScroll('left')}
+          onMouseLeave={stopScroll}
+        />
+        <div
+          className="absolute right-0 top-0 bottom-0 w-16 z-10"
+          onMouseEnter={() => handleScroll('right')}
+          onMouseLeave={stopScroll}
+        />
+        <div 
+          ref={containerRef} 
+          className="flex overflow-x-auto scrollbar-hide"
+          style={{ scrollBehavior: 'smooth' }}
+        >
+          <AnimatePresence initial={false}>
+            {activeColumns.map((columnBookmarks, index) => (
+              <BookmarkColumn
+                key={index}
+                bookmarks={columnBookmarks}
+                depth={index}
+                onHover={handleHover}
+                activeColumns={activeColumns}
+                onAddBookmark={handleAddBookmark}
+                onEditBookmark={handleEditBookmark}
+              />
+            ))}
+          </AnimatePresence>
+        </div>
+      </div>
+      <BookmarkDialog
+        open={dialogOpen}
+        onOpenChange={setDialogOpen}
+        onSave={handleSaveBookmark}
+        initialData={editingBookmark?.bookmark}
+      />
+    </>
+  );
+}
