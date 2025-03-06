@@ -1,75 +1,75 @@
-'use client';
+"use client";
 
-import { useState, useRef, useEffect } from 'react';
-import { AnimatePresence } from 'framer-motion';
-import { Bookmark, BookmarkFormData } from '@/types/bookmark';
-import { BookmarkColumn } from './BookmarkColumn';
-import { BookmarkDialog } from './BookmarkDialog';
-import { BookmarkMenu } from './BookmarkMenu';
-import { loadBookmarks, saveBookmarks } from '@/lib/db';
+import { useState, useRef, useEffect } from "react";
+import { AnimatePresence } from "framer-motion";
+import { Bookmark, BookmarkFormData } from "@/types/bookmark";
+import { BookmarkColumn } from "./BookmarkColumn";
+import { BookmarkDialog } from "./BookmarkDialog";
+import { BookmarkMenu } from "./BookmarkMenu";
+import { loadBookmarks, saveBookmarks } from "@/lib/db";
 
 const demoBookmarks: Bookmark[] = [
   {
-    id: '1',
-    title: 'Development',
-    url: 'https://dev.to',
-    icon: 'https://images.unsplash.com/photo-1461749280684-dccba630e2f6?w=32&h=32&fit=crop&auto=format',
+    id: "1",
+    title: "Development",
+    url: "https://dev.to",
+    icon: "https://images.unsplash.com/photo-1461749280684-dccba630e2f6?w=32&h=32&fit=crop&auto=format",
     children: [
       {
-        id: '1-1',
-        title: 'Frontend',
-        url: 'https://frontend.com',
+        id: "1-1",
+        title: "Frontend",
+        url: "https://frontend.com",
         children: [
           {
-            id: '1-1-1',
-            title: 'React',
-            url: 'https://react.dev',
-            description: 'React documentation and resources'
+            id: "1-1-1",
+            title: "React",
+            url: "https://react.dev",
+            description: "React documentation and resources",
           },
           {
-            id: '1-1-2',
-            title: 'Next.js',
-            url: 'https://nextjs.org',
-            description: 'The React Framework for the Web'
-          }
-        ]
+            id: "1-1-2",
+            title: "Next.js",
+            url: "https://nextjs.org",
+            description: "The React Framework for the Web",
+          },
+        ],
       },
       {
-        id: '1-2',
-        title: 'Backend',
-        url: 'https://backend.com',
+        id: "1-2",
+        title: "Backend",
+        url: "https://backend.com",
         children: [
           {
-            id: '1-2-1',
-            title: 'Node.js',
-            url: 'https://nodejs.org',
-            description: 'Node.js® is a JavaScript runtime'
-          }
-        ]
-      }
-    ]
+            id: "1-2-1",
+            title: "Node.js",
+            url: "https://nodejs.org",
+            description: "Node.js® is a JavaScript runtime",
+          },
+        ],
+      },
+    ],
   },
   {
-    id: '2',
-    title: 'Design',
-    url: 'https://design.com',
-    icon: 'https://images.unsplash.com/photo-1470309864661-68328b2cd0a5?w=32&h=32&fit=crop&auto=format',
+    id: "2",
+    title: "Design",
+    url: "https://design.com",
+    icon: "https://images.unsplash.com/photo-1470309864661-68328b2cd0a5?w=32&h=32&fit=crop&auto=format",
     children: [
       {
-        id: '2-1',
-        title: 'UI Resources',
-        url: 'https://ui.com',
+        id: "2-1",
+        title: "UI Resources",
+        url: "https://ui.com",
         children: [
           {
-            id: '2-1-1',
-            title: 'Figma',
-            url: 'https://figma.com',
-            description: 'Collaborative interface design tool'
-          }
-        ]
-      }
-    ]
-  }
+            id: "2-1-1",
+            title: "Figma",
+            url: "https://figma.com",
+            description: "Collaborative interface design tool",
+          },
+        ],
+      },
+    ],
+  },
 ];
 
 export function BookmarkManager() {
@@ -80,7 +80,7 @@ export function BookmarkManager() {
     bookmark?: Bookmark;
     parentId: string | null;
   } | null>(null);
-  
+
   const containerRef = useRef<HTMLDivElement>(null);
   const [isScrolling, setIsScrolling] = useState(false);
   const scrollIntervalRef = useRef<NodeJS.Timeout>();
@@ -101,7 +101,7 @@ export function BookmarkManager() {
         }
       })
       .catch((error) => {
-        console.error('Error loading bookmarks:', error);
+        console.error("Error loading bookmarks:", error);
         // Fallback to demo bookmarks
         setBookmarks(demoBookmarks);
         setActiveColumns([[...demoBookmarks]]);
@@ -112,22 +112,22 @@ export function BookmarkManager() {
   useEffect(() => {
     if (bookmarks.length > 0) {
       saveBookmarks(bookmarks).catch((error) => {
-        console.error('Error saving bookmarks:', error);
+        console.error("Error saving bookmarks:", error);
       });
     }
   }, [bookmarks]);
 
-  const handleScroll = (direction: 'left' | 'right') => {
+  const handleScroll = (direction: "left" | "right") => {
     if (!containerRef.current || isScrolling) return;
 
     const container = containerRef.current;
     const scrollAmount = 100;
-    
+
     setIsScrolling(true);
     scrollIntervalRef.current = setInterval(() => {
       container.scrollBy({
-        left: direction === 'left' ? -scrollAmount : scrollAmount,
-        behavior: 'smooth'
+        left: direction === "left" ? -scrollAmount : scrollAmount,
+        behavior: "smooth",
       });
     }, 200);
   };
@@ -168,7 +168,9 @@ export function BookmarkManager() {
       if (item.id === parentId) {
         return {
           ...item,
-          children: item.children ? [...item.children, newBookmark] : [newBookmark],
+          children: item.children
+            ? [...item.children, newBookmark]
+            : [newBookmark],
         };
       }
       if (item.children) {
@@ -215,14 +217,14 @@ export function BookmarkManager() {
       const urlObj = new URL(url);
       return `${urlObj.protocol}//${urlObj.hostname}/favicon.ico`;
     } catch {
-      return '';
+      return "";
     }
   };
 
   const handleSaveBookmark = (formData: BookmarkFormData) => {
     const bookmarkData = {
       ...formData,
-      icon: formData.url ? getFaviconUrl(formData.url) : undefined
+      icon: formData.url ? getFaviconUrl(formData.url) : undefined,
     };
 
     if (editingBookmark?.bookmark) {
@@ -261,28 +263,31 @@ export function BookmarkManager() {
 
   return (
     <>
-      <div className="h-[calc(100vh-4rem)] flex relative">
+      <header className="h-16 border-b flex items-center justify-between px-6">
+        <h1 className="text-2xl font-semibold">Bookmarks</h1>
         <div className="absolute right-4 top-4 z-20">
-          <BookmarkMenu 
-            bookmarks={bookmarks} 
+          <BookmarkMenu
+            bookmarks={bookmarks}
             onImport={handleImportBookmarks}
             onUpdateActiveColumns={handleUpdateActiveColumns}
           />
         </div>
+      </header>
+      <div className="h-[calc(100vh-4rem)] flex relative">
         <div
           className="absolute left-0 top-0 bottom-0 w-16 z-10"
-          onMouseEnter={() => handleScroll('left')}
+          onMouseEnter={() => handleScroll("left")}
           onMouseLeave={stopScroll}
         />
         <div
           className="absolute right-0 top-0 bottom-0 w-16 z-10"
-          onMouseEnter={() => handleScroll('right')}
+          onMouseEnter={() => handleScroll("right")}
           onMouseLeave={stopScroll}
         />
-        <div 
-          ref={containerRef} 
+        <div
+          ref={containerRef}
           className="flex overflow-x-auto scrollbar-hide"
-          style={{ scrollBehavior: 'smooth' }}
+          style={{ scrollBehavior: "smooth" }}
         >
           <AnimatePresence initial={false}>
             {activeColumns.map((columnBookmarks, index) => (
