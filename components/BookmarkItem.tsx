@@ -18,6 +18,7 @@ import {
   HoverCardContent,
   HoverCardTrigger,
 } from "@/components/ui/hover-card";
+import { useState } from "react";
 
 export function BookmarkItem({
   bookmark,
@@ -44,6 +45,18 @@ export function BookmarkItem({
     transition,
   };
 
+  const handleDoubleClick = (e: React.MouseEvent) => {
+    e.preventDefault();
+    if (bookmark.url) {
+      window.open(bookmark.url, "_blank");
+    }
+  };
+
+  const handleClick = (e: React.MouseEvent) => {
+    e.preventDefault(); // Prevent default to avoid navigation on single click
+    onHover(bookmark, depth);
+  };
+
   return (
     <div
       ref={setNodeRef}
@@ -59,7 +72,14 @@ export function BookmarkItem({
       role="button"
       tabIndex={0}
     >
-      <div className="flex-1 flex items-center gap-2 min-w-0">
+      <a 
+        href={bookmark.url || "#"} 
+        target="_blank" 
+        rel="noopener noreferrer"
+        className="flex-1 flex items-center gap-2 min-w-0"
+        onClick={handleClick}
+        onDoubleClick={handleDoubleClick}
+      >
         {bookmark.icon ? (
           <img
             src={bookmark.icon}
@@ -90,21 +110,21 @@ export function BookmarkItem({
             </HoverCardContent>
           )}
         </HoverCard>
-      </div>
+      </a>
 
       <div className="flex items-center gap-2 opacity-0 group-hover:opacity-95 transition-opacity absolute right-2 bg-background/80 backdrop-blur-sm p-1 rounded-md">
         {bookmark.url && (
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-8 w-8"
+          <a
+            href={bookmark.url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center justify-center h-8 w-8 rounded-md text-sm font-medium ring-offset-background transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
             onClick={(e) => {
               e.stopPropagation();
-              window.open(bookmark.url, "_blank");
             }}
           >
             <ExternalLink className="h-4 w-4" />
-          </Button>
+          </a>
         )}
         <Button
           variant="ghost"
