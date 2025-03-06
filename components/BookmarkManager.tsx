@@ -86,6 +86,54 @@ export function BookmarkManager() {
       });
   }, []);
 
+  // This effect ensures that activeColumns is always in sync with the bookmarks state
+  // It preserves the hover state while updating the bookmark data
+  useEffect(() => {
+    // Only run this effect if we have bookmarks and activeColumns
+    if (bookmarks.length === 0 || activeColumns.length === 0) return;
+
+    // Create a new array of active columns with updated bookmark data
+    const updatedActiveColumns = activeColumns.map((column, columnIndex) => {
+      if (columnIndex === 0) {
+        // For the root column, use the updated bookmarks while preserving hover state
+        return bookmarks.map(bookmark => ({
+          ...bookmark,
+          isHovered: column.find(b => b.id === bookmark.id)?.isHovered || false
+        }));
+      } else {
+        // For nested columns, find the parent bookmark in the previous column
+        const hoveredBookmarkInPrevColumn = activeColumns[columnIndex - 1]?.find(b => b.isHovered);
+        
+        if (hoveredBookmarkInPrevColumn) {
+          // Find the updated parent bookmark
+          const updatedParent = findBookmarkById(bookmarks, hoveredBookmarkInPrevColumn.id);
+          
+          if (updatedParent?.children) {
+            // Use the updated children while preserving hover state
+            return updatedParent.children.map(child => ({
+              ...child,
+              isHovered: column.find(b => b.id === child.id)?.isHovered || false
+            }));
+          }
+        }
+        
+        // If we can't find the parent or it has no children, preserve the current column
+        // but update any bookmarks that might have changed
+        return column.map(bookmark => {
+          const updatedBookmark = findBookmarkById(bookmarks, bookmark.id);
+          return updatedBookmark ? 
+            { ...updatedBookmark, isHovered: bookmark.isHovered || false } : 
+            bookmark;
+        });
+      }
+    });
+    
+    // Only update if the columns have actually changed
+    if (JSON.stringify(updatedActiveColumns) !== JSON.stringify(activeColumns)) {
+      setActiveColumns(updatedActiveColumns);
+    }
+  }, [bookmarks]);
+
   // Save bookmarks to IndexedDB whenever they change
   useEffect(() => {
     if (bookmarks.length > 0) {
@@ -304,23 +352,12 @@ export function BookmarkManager() {
         editingBookmark.bookmark.id,
         bookmarkData
       );
+      
+      // Just update the bookmarks state - the useEffect will handle synchronizing activeColumns
       setBookmarks(updatedBookmarks);
-
-      // Update active columns while preserving the current navigation state
-      const newActiveColumns = activeColumns.map((column, index) => {
-        if (index === 0) {
-          return [...updatedBookmarks];
-        } else {
-          // For each column, find the corresponding parent in the updated bookmarks
-          const parentId = index === 1 ? null : activeColumns[index - 1][0]?.id;
-          if (parentId) {
-            const parent = findBookmarkById(updatedBookmarks, parentId);
-            return parent?.children || column;
-          }
-          return column;
-        }
-      });
-      setActiveColumns(newActiveColumns);
+      
+      // Save to database
+      saveBookmarks(updatedBookmarks);
     } else {
       // Add new bookmark
       const newBookmark: Bookmark = {
@@ -332,50 +369,16 @@ export function BookmarkManager() {
         editingBookmark?.parentId || null,
         newBookmark
       );
+      
+      // Just update the bookmarks state - the useEffect will handle synchronizing activeColumns
       setBookmarks(updatedBookmarks);
-
-      // Update active columns while preserving the current navigation state
-      const newActiveColumns = activeColumns.map((column, index) => {
-        if (index === 0) {
-          return [...updatedBookmarks];
-        } else {
-          // For each column, find the corresponding parent in the updated bookmarks
-          const parentId = index === 1 ? null : activeColumns[index - 1][0]?.id;
-          if (parentId) {
-            const parent = findBookmarkById(updatedBookmarks, parentId);
-            return parent?.children || column;
-          }
-          return column;
-        }
-      });
-
-      // If we're adding to a specific parent that's visible in the active columns,
-      // make sure the new bookmark is visible in the appropriate column
-      if (editingBookmark?.parentId) {
-        // Find which column contains the parent
-        const parentColumnIndex = newActiveColumns.findIndex((column) =>
-          column.some((item) => item.id === editingBookmark.parentId)
-        );
-
-        if (parentColumnIndex !== -1) {
-          // Find the parent in the updated bookmarks
-          const parent = findBookmarkById(
-            updatedBookmarks,
-            editingBookmark.parentId
-          );
-          if (parent?.children) {
-            // Update the next column to show the parent's children (which includes the new bookmark)
-            if (parentColumnIndex + 1 < newActiveColumns.length) {
-              newActiveColumns[parentColumnIndex + 1] = [...parent.children];
-            } else {
-              newActiveColumns.push([...parent.children]);
-            }
-          }
-        }
-      }
-
-      setActiveColumns(newActiveColumns);
+      
+      // Save to database
+      saveBookmarks(updatedBookmarks);
     }
+
+    // Close the dialog
+    setDialogOpen(false);
     setEditingBookmark(null);
   };
 
@@ -484,15 +487,18 @@ export function BookmarkManager() {
                 newItems
               );
 
-              const newActiveColumns = [...activeColumns];
-              newActiveColumns[columnIndex] = newItems;
-
+              // Just update the bookmarks state - the useEffect will handle synchronizing activeColumns
               setBookmarks(newBookmarks);
-              setActiveColumns(newActiveColumns);
+              
+              // Save to database
+              saveBookmarks(newBookmarks);
             } else {
               // For the root column, just update everything
+              // Just update the bookmarks state - the useEffect will handle synchronizing activeColumns
               setBookmarks(newItems);
-              setActiveColumns([[...newItems]]);
+              
+              // Save to database
+              saveBookmarks(newItems);
             }
           })
           .catch((error) => {
