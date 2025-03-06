@@ -1,13 +1,13 @@
-import './globals.css';
-import type { Metadata } from 'next';
-import { Inter } from 'next/font/google';
-import { ThemeProvider } from "@/components/theme-provider"
+import "./globals.css";
+import type { Metadata } from "next";
+import { Inter } from "next/font/google";
+import { ThemeProvider } from "@/components/theme-provider";
 
-const inter = Inter({ subsets: ['latin'] });
- 
+const inter = Inter({ subsets: ["latin"] });
+
 export const metadata: Metadata = {
-  title: 'Fishmark',
-  description: 'A modern bookmark manager',
+  title: "Fishmark",
+  description: "A modern bookmark manager",
 };
 
 export default function RootLayout({
