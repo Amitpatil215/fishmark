@@ -3,7 +3,7 @@ import { Bookmark } from '@/types/bookmark';
 const DB_NAME = 'bookmarksDB';
 const BOOKMARKS_STORE = 'bookmarks';
 const PREFERENCES_STORE = 'preferences';
-const DB_VERSION = 2;
+const DB_VERSION = 3;
 
 export async function initDB(): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {
@@ -14,12 +14,18 @@ export async function initDB(): Promise<IDBDatabase> {
 
     request.onupgradeneeded = (event) => {
       const db = (event.target as IDBOpenDBRequest).result;
-      if (!db.objectStoreNames.contains(BOOKMARKS_STORE)) {
-        db.createObjectStore(BOOKMARKS_STORE, { keyPath: 'id' });
+      
+      // Delete old stores if they exist
+      if (db.objectStoreNames.contains(BOOKMARKS_STORE)) {
+        db.deleteObjectStore(BOOKMARKS_STORE);
       }
-      if (!db.objectStoreNames.contains(PREFERENCES_STORE)) {
-        db.createObjectStore(PREFERENCES_STORE, { keyPath: 'key' });
+      if (db.objectStoreNames.contains(PREFERENCES_STORE)) {
+        db.deleteObjectStore(PREFERENCES_STORE);
       }
+
+      // Create new stores
+      db.createObjectStore(BOOKMARKS_STORE, { keyPath: 'id' });
+      db.createObjectStore(PREFERENCES_STORE, { keyPath: 'key' });
     };
   });
 }
@@ -33,10 +39,8 @@ export async function saveBookmarks(bookmarks: Bookmark[]): Promise<void> {
     // Clear existing bookmarks
     store.clear();
 
-    // Add all bookmarks
-    bookmarks.forEach(bookmark => {
-      store.add(bookmark);
-    });
+    // Store the entire bookmarks array as a single object
+    store.put({ id: 'root', bookmarks });
 
     transaction.oncomplete = () => resolve();
     transaction.onerror = () => reject(transaction.error);
@@ -48,9 +52,9 @@ export async function loadBookmarks(): Promise<Bookmark[]> {
   return new Promise((resolve, reject) => {
     const transaction = db.transaction(BOOKMARKS_STORE, 'readonly');
     const store = transaction.objectStore(BOOKMARKS_STORE);
-    const request = store.getAll();
+    const request = store.get('root');
 
-    request.onsuccess = () => resolve(request.result);
+    request.onsuccess = () => resolve(request.result?.bookmarks || []);
     request.onerror = () => reject(request.error);
   });
 }

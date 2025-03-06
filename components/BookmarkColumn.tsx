@@ -1,6 +1,7 @@
 'use client';
 
 import { motion } from "framer-motion";
+import { SortableContext, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import { BookmarkColumnProps } from "@/types/bookmark";
 import { BookmarkItem } from "./BookmarkItem";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -13,7 +14,8 @@ export function BookmarkColumn({
   onHover, 
   activeColumns,
   onAddBookmark,
-  onEditBookmark
+  onEditBookmark,
+  columnId
 }: BookmarkColumnProps) {
   return (
     <motion.div
@@ -38,17 +40,26 @@ export function BookmarkColumn({
               Add
             </Button>
           </div>
-          {bookmarks.map((bookmark) => (
-            <BookmarkItem
-              key={bookmark.id}
-              bookmark={bookmark}
-              depth={depth}
-              isActive={activeColumns[depth]?.includes(bookmark)}
-              onHover={onHover}
-              onAddBookmark={onAddBookmark}
-              onEditBookmark={onEditBookmark}
-            />
-          ))}
+          <SortableContext 
+            items={bookmarks.map(b => b.id)}
+            strategy={verticalListSortingStrategy}
+            id={columnId}
+          >
+            <div className="space-y-2">
+              {bookmarks.map((bookmark, index) => (
+                <BookmarkItem
+                  key={bookmark.id}
+                  bookmark={bookmark}
+                  depth={depth}
+                  index={index}
+                  isActive={activeColumns[depth]?.includes(bookmark)}
+                  onHover={onHover}
+                  onAddBookmark={onAddBookmark}
+                  onEditBookmark={onEditBookmark}
+                />
+              ))}
+            </div>
+          </SortableContext>
         </div>
       </ScrollArea>
     </motion.div>

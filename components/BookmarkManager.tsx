@@ -2,6 +2,15 @@
 
 import { useState, useRef, useEffect } from "react";
 import { AnimatePresence } from "framer-motion";
+import {
+  DndContext,
+  DragEndEvent,
+  closestCenter,
+  PointerSensor,
+  useSensor,
+  useSensors,
+} from "@dnd-kit/core";
+import { arrayMove, SortableContext } from "@dnd-kit/sortable";
 import { Bookmark, BookmarkFormData } from "@/types/bookmark";
 import { BookmarkColumn } from "./BookmarkColumn";
 import { BookmarkDialog } from "./BookmarkDialog";
@@ -86,6 +95,14 @@ export function BookmarkManager() {
   const containerRef = useRef<HTMLDivElement>(null);
   const [isScrolling, setIsScrolling] = useState(false);
   const scrollIntervalRef = useRef<NodeJS.Timeout>();
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: {
+        distance: 8,
+      },
+    })
+  );
 
   useEffect(() => {
     // Load bookmarks from IndexedDB when component mounts
@@ -263,6 +280,88 @@ export function BookmarkManager() {
     setActiveColumns([[...importedBookmarks]]);
   };
 
+  const findBookmarkListById = (
+    items: Bookmark[],
+    columnId: string
+  ): Bookmark[] | null => {
+    if (columnId === "root") return items;
+
+    for (const item of items) {
+      if (item.id === columnId) return item.children || [];
+      if (item.children) {
+        const result = findBookmarkListById(item.children, columnId);
+        if (result) return result;
+      }
+    }
+    return null;
+  };
+
+  const updateBookmarkListById = (
+    items: Bookmark[],
+    columnId: string,
+    newList: Bookmark[]
+  ): Bookmark[] => {
+    if (columnId === "root") return newList;
+
+    return items.map((item) => {
+      if (item.id === columnId) {
+        return { ...item, children: newList };
+      }
+      if (item.children) {
+        return {
+          ...item,
+          children: updateBookmarkListById(item.children, columnId, newList),
+        };
+      }
+      return item;
+    });
+  };
+
+  const handleDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+    
+    if (!over) return;
+
+    if (active.id !== over.id) {
+      const activeContainer = active.data.current?.sortable.containerId;
+      const overContainer = over.data.current?.sortable.containerId;
+      
+      if (activeContainer === overContainer) {
+        const items = findBookmarkListById(bookmarks, activeContainer);
+        if (!items) return;
+
+        const oldIndex = items.findIndex((item) => item.id === active.id);
+        const newIndex = items.findIndex((item) => item.id === over.id);
+
+        const newItems = arrayMove(items, oldIndex, newIndex);
+
+        // If we're reordering in a nested column, we need to update the active columns
+        const columnIndex = activeColumns.findIndex(column => 
+          column.some(item => item.id === active.id)
+        );
+
+        if (columnIndex > 0) {
+          // For nested columns, update both the main bookmark tree and active columns
+          const newBookmarks = updateBookmarkListById(
+            bookmarks,
+            activeContainer,
+            newItems
+          );
+
+          const newActiveColumns = [...activeColumns];
+          newActiveColumns[columnIndex] = newItems;
+
+          setBookmarks(newBookmarks);
+          setActiveColumns(newActiveColumns);
+        } else {
+          // For the root column, just update everything
+          setBookmarks(newItems);
+          setActiveColumns([[...newItems]]);
+        }
+      }
+    }
+  };
+
   return (
     <>
       <header className="h-16 border-b flex items-center justify-between px-6">
@@ -279,37 +378,44 @@ export function BookmarkManager() {
           />
         </div>
       </header>
-      <div className="h-[calc(100vh-4rem)] flex relative">
-        <div
-          className="absolute left-0 top-0 bottom-0 w-16 z-10"
-          onMouseEnter={() => handleScroll("left")}
-          onMouseLeave={stopScroll}
-        />
-        <div
-          className="absolute right-0 top-0 bottom-0 w-16 z-10"
-          onMouseEnter={() => handleScroll("right")}
-          onMouseLeave={stopScroll}
-        />
-        <div
-          ref={containerRef}
-          className="flex overflow-x-auto scrollbar-hide"
-          style={{ scrollBehavior: "smooth" }}
-        >
-          <AnimatePresence initial={false}>
-            {activeColumns.map((columnBookmarks, index) => (
-              <BookmarkColumn
-                key={index}
-                bookmarks={columnBookmarks}
-                depth={index}
-                onHover={handleHover}
-                activeColumns={activeColumns}
-                onAddBookmark={handleAddBookmark}
-                onEditBookmark={handleEditBookmark}
-              />
-            ))}
-          </AnimatePresence>
+      <DndContext 
+        sensors={sensors}
+        collisionDetection={closestCenter}
+        onDragEnd={handleDragEnd}
+      >
+        <div className="h-[calc(100vh-4rem)] flex relative">
+          <div
+            className="absolute left-0 top-0 bottom-0 w-16 z-10"
+            onMouseEnter={() => handleScroll("left")}
+            onMouseLeave={stopScroll}
+          />
+          <div
+            className="absolute right-0 top-0 bottom-0 w-16 z-10"
+            onMouseEnter={() => handleScroll("right")}
+            onMouseLeave={stopScroll}
+          />
+          <div
+            ref={containerRef}
+            className="flex overflow-x-auto scrollbar-hide"
+            style={{ scrollBehavior: "smooth" }}
+          >
+            <AnimatePresence initial={false}>
+              {activeColumns.map((columnBookmarks, index) => (
+                <BookmarkColumn
+                  key={index}
+                  bookmarks={columnBookmarks}
+                  depth={index}
+                  onHover={handleHover}
+                  activeColumns={activeColumns}
+                  onAddBookmark={handleAddBookmark}
+                  onEditBookmark={handleEditBookmark}
+                  columnId={index === 0 ? "root" : activeColumns[index - 1]?.[0]?.id}
+                />
+              ))}
+            </AnimatePresence>
+          </div>
         </div>
-      </div>
+      </DndContext>
       <BookmarkDialog
         open={dialogOpen}
         onOpenChange={setDialogOpen}

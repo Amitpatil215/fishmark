@@ -8,6 +8,8 @@ import {
   Edit,
   FishSymbol,
 } from "lucide-react";
+import { useSortable } from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
 import { cn } from "@/lib/utils";
 import { BookmarkItemProps } from "@/types/bookmark";
 import { Button } from "@/components/ui/button";
@@ -20,18 +22,38 @@ import {
 export function BookmarkItem({
   bookmark,
   depth,
+  index,
   isActive,
   onHover,
   onAddBookmark,
   onEditBookmark,
 }: BookmarkItemProps) {
   const hasChildren = bookmark.children && bookmark.children.length > 0;
+  
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: bookmark.id });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+  };
 
   return (
     <div
+      ref={setNodeRef}
+      style={style}
+      {...attributes}
+      {...listeners}
       className={cn(
         "group relative flex items-center gap-2 rounded-lg p-2 hover:bg-accent overflow-hidden",
-        isActive && "bg-accent"
+        isActive && "bg-accent",
+        isDragging && "shadow-lg bg-accent/50"
       )}
       onMouseEnter={() => onHover(bookmark, depth)}
       role="button"

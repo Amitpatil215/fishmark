@@ -14,11 +14,13 @@ export interface BookmarkColumnProps {
   activeColumns: Bookmark[][];
   onAddBookmark: (parentId: string | null) => void;
   onEditBookmark: (bookmark: Bookmark) => void;
+  columnId: string;
 }
 
 export interface BookmarkItemProps {
   bookmark: Bookmark;
   depth: number;
+  index: number;
   isActive: boolean;
   onHover: (bookmark: Bookmark, depth: number) => void;
   onAddBookmark: (parentId: string) => void;
