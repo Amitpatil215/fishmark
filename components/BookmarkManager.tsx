@@ -9,6 +9,9 @@ import {
   PointerSensor,
   useSensor,
   useSensors,
+  DragOverlay,
+  defaultDropAnimation,
+  Modifier,
 } from "@dnd-kit/core";
 import { arrayMove, SortableContext } from "@dnd-kit/sortable";
 import { Bookmark, BookmarkFormData } from "@/types/bookmark";
@@ -428,76 +431,118 @@ export function BookmarkManager() {
     });
   };
 
+  const handleDragOver = (event: any) => {
+    const { active, over } = event;
+    
+    if (!over) return;
+
+    // Find the bookmark being hovered over
+    const hoveredBookmark = findBookmarkById(bookmarks, over.id);
+    if (hoveredBookmark) {
+      // If dragging over a bookmark without children, prevent dropping
+      if (!hoveredBookmark.children || hoveredBookmark.children.length === 0) {
+        event.over = null;
+        return;
+      }
+
+      // Find the depth of the hovered bookmark
+      const hoveredDepth = findBookmarkDepth(bookmarks, hoveredBookmark.id);
+      
+      // Trigger column expansion by simulating hover
+      handleHoverImpl(hoveredBookmark, hoveredDepth || 0);
+    }
+  };
+
+  // Helper function to find the depth of a bookmark
+  const findBookmarkDepth = (
+    items: Bookmark[],
+    bookmarkId: string,
+    depth: number = 0
+  ): number | null => {
+    for (const item of items) {
+      if (item.id === bookmarkId) {
+        return depth;
+      }
+      if (item.children) {
+        const foundDepth = findBookmarkDepth(item.children, bookmarkId, depth + 1);
+        if (foundDepth !== null) {
+          return foundDepth;
+        }
+      }
+    }
+    return null;
+  };
+
+  // Helper function to find the parent ID of a bookmark
+  const findBookmarkParentId = (
+    items: Bookmark[],
+    bookmarkId: string,
+    parentId: string | null = null
+  ): string | null => {
+    for (const item of items) {
+      if (item.children) {
+        if (item.children.some(child => child.id === bookmarkId)) {
+          return item.id;
+        }
+        const foundParentId = findBookmarkParentId(item.children, bookmarkId, item.id);
+        if (foundParentId !== null) {
+          return foundParentId;
+        }
+      }
+    }
+    return null;
+  };
+
   const handleDragEnd = (event: DragEndEvent) => {
     const { active, over } = event;
 
     if (!over) return;
 
     if (active.id !== over.id) {
-      // Safely access containerId with fallbacks
-      const activeContainer =
-        active.data.current?.sortable?.containerId || "unknown";
-      const overContainer =
-        over.data.current?.sortable?.containerId || "unknown";
+      // Find the actual parent IDs for both source and target
+      const sourceParentId = findBookmarkParentId(bookmarks, active.id as string);
+      const targetParentId = findBookmarkParentId(bookmarks, over.id as string);
 
-      // If either container is unknown, we can't safely proceed with the drag
-      if (activeContainer === "unknown" || overContainer === "unknown") {
-        console.warn("Unable to determine container for drag operation");
-        return;
-      }
+      // Get the source and target items
+      const sourceItems = sourceParentId 
+        ? findBookmarkListById(bookmarks, sourceParentId) 
+        : bookmarks;
+      const targetItems = targetParentId
+        ? findBookmarkListById(bookmarks, targetParentId)
+        : bookmarks;
+      
+      if (!sourceItems || !targetItems) return;
 
-      // Only allow reordering within the same container
-      if (activeContainer === overContainer) {
-        const items = findBookmarkListById(bookmarks, activeContainer);
-        if (!items) return;
+      const oldIndex = sourceItems.findIndex((item) => item.id === active.id);
+      const newIndex = targetItems.findIndex((item) => item.id === over.id);
 
-        const oldIndex = items.findIndex((item) => item.id === active.id);
-        const newIndex = items.findIndex((item) => item.id === over.id);
-
-        const newItems = arrayMove(items, oldIndex, newIndex);
-
-        // If we're reordering in a nested column, we need to update the active columns
-        const columnIndex = activeColumns.findIndex((column) =>
-          column.some((item) => item.id === active.id)
-        );
-
-        // Find the parent ID for this container
-        let parentId: string | null = null;
-        if (activeContainer !== "root") {
-          // The container ID is the parent bookmark's ID
-          parentId = activeContainer;
-        }
+      // If source and target parents are the same, handle reordering
+      if (sourceParentId === targetParentId) {
+        const newItems = arrayMove(sourceItems, oldIndex, newIndex);
 
         // Use the reorderBookmark function to update the database
-        reorderBookmark(active.id as string, newIndex, parentId)
+        reorderBookmark(active.id as string, newIndex, sourceParentId)
           .then(() => {
             // Log the transaction for undo/redo
             logTransaction("reorderBookmark", {
               bookmarkId: active.id,
-              parentId,
+              parentId: sourceParentId,
               oldIndex,
               newIndex,
             });
 
-            if (columnIndex > 0) {
+            if (sourceParentId) {
               // For nested columns, update both the main bookmark tree and active columns
               const newBookmarks = updateBookmarkListById(
                 bookmarks,
-                activeContainer,
+                sourceParentId,
                 newItems
               );
-
-              // Just update the bookmarks state - the useEffect will handle synchronizing activeColumns
               setBookmarks(newBookmarks);
-              
-              // Save to database
               saveBookmarks(newBookmarks);
             } else {
               // For the root column, just update everything
-              // Just update the bookmarks state - the useEffect will handle synchronizing activeColumns
               setBookmarks(newItems);
-              
-              // Save to database
               saveBookmarks(newItems);
             }
           })
@@ -505,8 +550,28 @@ export function BookmarkManager() {
             console.error("Error reordering bookmark:", error);
           });
       } else {
-        // If containers are different, show a more helpful message
-        console.log("Dragging between different containers is not supported");
+        // Moving between different parents
+        // Use moveBookmarkToParent to handle the move
+        moveBookmarkToParent(active.id as string, targetParentId, newIndex)
+          .then(() => {
+            // Log the transaction for undo/redo
+            logTransaction("moveBookmark", {
+              bookmarkId: active.id,
+              oldParentId: sourceParentId,
+              newParentId: targetParentId,
+              oldIndex,
+              newIndex,
+            });
+
+            // Reload bookmarks to get the updated state
+            loadBookmarks().then((updatedBookmarks) => {
+              setBookmarks(updatedBookmarks);
+              saveBookmarks(updatedBookmarks);
+            });
+          })
+          .catch((error) => {
+            console.error("Error moving bookmark:", error);
+          });
       }
     }
   };
@@ -704,6 +769,7 @@ export function BookmarkManager() {
           sensors={sensors}
           collisionDetection={closestCenter}
           onDragEnd={handleDragEnd}
+          onDragOver={handleDragOver}
         >
           <div className="h-[calc(100vh-4rem)] flex relative">
             <div

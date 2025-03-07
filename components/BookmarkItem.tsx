@@ -49,11 +49,19 @@ function BookmarkItemBase({
     transform,
     transition,
     isDragging,
-  } = useSortable({ id: bookmark.id });
+  } = useSortable({ 
+    id: bookmark.id,
+    data: {
+      type: 'bookmark',
+      hasChildren,
+      depth
+    }
+  });
 
   const style = {
     transform: CSS.Transform.toString(transform),
     transition,
+    pointerEvents: isDragging ? 'none' as const : undefined
   };
 
   const handleDoubleClick = (e: React.MouseEvent) => {

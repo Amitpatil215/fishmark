@@ -55,6 +55,15 @@ export function BookmarkColumn({
     return null;
   };
 
+  // Get the column ID for the SortableContext
+  const getColumnId = () => {
+    if (depth === 0) return "root";
+
+    // Find the hovered bookmark in the previous column
+    const hoveredBookmark = activeColumns[depth - 1]?.find(b => b.isHovered);
+    return hoveredBookmark?.id || `column-${depth}`;
+  };
+
   return (
     <motion.div
       initial={{ opacity: 0, x: 20 }}
@@ -80,9 +89,9 @@ export function BookmarkColumn({
           <SortableContext
             items={bookmarks.map((b) => b.id)}
             strategy={verticalListSortingStrategy}
-            id={columnId}
+            id={getColumnId()}
           >
-            <div className="space-y-2">
+            <div className="space-y-2 min-h-[50px]">
               {bookmarks.map((bookmark, index) => (
                 <BookmarkItem
                   key={bookmark.id}
