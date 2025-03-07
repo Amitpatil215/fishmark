@@ -256,12 +256,12 @@ export function BookmarkManager() {
     newColumns[depth] = updatedCurrentColumn;
     
     if (bookmark.children && bookmark.children.length > 0) {
-      // Add parent name to each child bookmark
-      const childrenWithParentName = bookmark.children.map((child) => ({
+      // Add parent ID to each child bookmark
+      const childrenWithParentId = bookmark.children.map((child) => ({
         ...child,
-        parentName: bookmark.title,
+        parentId: bookmark.id,
       }));
-      newColumns[depth + 1] = childrenWithParentName;
+      newColumns[depth + 1] = childrenWithParentId;
     } else {
       // For bookmarks without children, create an empty column
       // This ensures we show an empty column when hovering over items without children
@@ -280,15 +280,15 @@ export function BookmarkManager() {
     newBookmark: Bookmark
   ): Bookmark[] => {
     if (!parentId) {
-      return [...items, newBookmark];
+      return [...items, { ...newBookmark, parentId: null }];
     }
 
     return items.map((item) => {
       if (item.id === parentId) {
-        // Add parent name to the new bookmark
+        // Add parent ID to the new bookmark
         const bookmarkWithParent = {
           ...newBookmark,
-          parentName: item.title,
+          parentId: item.id,
         };
 
         return {

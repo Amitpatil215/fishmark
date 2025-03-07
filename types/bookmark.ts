@@ -5,7 +5,7 @@ export interface Bookmark {
   description?: string;
   icon?: string;
   children?: Bookmark[];
-  parentName?: string;
+  parentId?: string | null;
   isHovered?: boolean;
 }
 
