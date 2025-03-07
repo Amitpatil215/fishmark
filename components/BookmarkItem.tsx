@@ -49,6 +49,8 @@ function BookmarkItemBase({
     transform,
     transition,
     isDragging,
+    isSorting,
+    over,
   } = useSortable({ 
     id: bookmark.id,
     data: {
@@ -61,7 +63,9 @@ function BookmarkItemBase({
   const style = {
     transform: CSS.Transform.toString(transform),
     transition,
-    pointerEvents: isDragging ? 'none' as const : undefined
+    opacity: isDragging ? 0.3 : 1,
+    pointerEvents: isDragging ? 'none' as const : undefined,
+    scale: isDragging ? 0.95 : 1,
   };
 
   const handleDoubleClick = (e: React.MouseEvent) => {
@@ -83,9 +87,11 @@ function BookmarkItemBase({
       {...attributes}
       {...listeners}
       className={cn(
-        "group relative flex items-center gap-2 rounded-lg p-2 hover:bg-accent overflow-hidden",
+        "group relative flex items-center gap-2 rounded-lg p-2 hover:bg-accent overflow-hidden transition-all duration-200",
         isActive && "bg-accent",
-        isDragging && "shadow-lg bg-accent/50"
+        isDragging && "shadow-lg bg-accent/50 cursor-grabbing",
+        over?.id === bookmark.id && "ring-2 ring-primary",
+        hasChildren && "hover:ring-1 hover:ring-primary/20"
       )}
       onMouseEnter={() => {
         onHover(bookmark, depth);

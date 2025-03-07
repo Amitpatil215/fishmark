@@ -10,6 +10,8 @@ import { BookmarkItem } from "./BookmarkItem";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Button } from "@/components/ui/button";
 import { Plus } from "lucide-react";
+import { useState } from "react";
+import { cn } from "@/lib/utils";
 
 export function BookmarkColumn({
   bookmarks,
@@ -20,6 +22,8 @@ export function BookmarkColumn({
   onEditBookmark,
   columnId,
 }: BookmarkColumnProps) {
+  const [isDraggingOver, setIsDraggingOver] = useState(false);
+
   // Get the parent bookmark name if this is a nested column
   const getColumnTitle = () => {
     if (depth === 0) return "All Bookmarks";
@@ -69,7 +73,10 @@ export function BookmarkColumn({
       initial={{ opacity: 0, x: 20 }}
       animate={{ opacity: 1, x: 0 }}
       exit={{ opacity: 0, x: -20 }}
-      className="h-full w-72 border-r"
+      className={cn(
+        "h-full w-72 border-r transition-colors duration-200",
+        isDraggingOver && "bg-accent/5"
+      )}
     >
       <ScrollArea className="h-full">
         <div className="p-4 space-y-2">
@@ -91,7 +98,15 @@ export function BookmarkColumn({
             strategy={verticalListSortingStrategy}
             id={getColumnId()}
           >
-            <div className="space-y-2 min-h-[50px]">
+            <div 
+              className={cn(
+                "space-y-2 min-h-[50px] rounded-lg transition-colors duration-200",
+                isDraggingOver && "bg-accent/10 ring-2 ring-primary/20"
+              )}
+              onDragEnter={() => setIsDraggingOver(true)}
+              onDragLeave={() => setIsDraggingOver(false)}
+              onDragEnd={() => setIsDraggingOver(false)}
+            >
               {bookmarks.map((bookmark, index) => (
                 <BookmarkItem
                   key={bookmark.id}

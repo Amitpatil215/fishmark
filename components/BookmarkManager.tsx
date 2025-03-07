@@ -39,6 +39,8 @@ import { PlusCircle } from "lucide-react";
 import { Button } from "./ui/button";
 import { EmptyState } from "./EmptyState";
 import { throttle } from "@/lib/utils";
+import { useToast } from '@/hooks/use-toast';
+import { Toaster } from "@/components/ui/toaster";
 
 export function BookmarkManager() {
   const [bookmarks, setBookmarks] = useState<Bookmark[]>([]);
@@ -49,6 +51,7 @@ export function BookmarkManager() {
     parentId: string | null;
   } | null>(null);
   const [isScrolling, setIsScrolling] = useState(false);
+  const [activeBookmark, setActiveBookmark] = useState<Bookmark | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const scrollIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const [historyIndex, setHistoryIndex] = useState(-1);
@@ -57,6 +60,7 @@ export function BookmarkManager() {
   const [isSearchActive, setIsSearchActive] = useState(false);
   const [selectedSearchIndex, setSelectedSearchIndex] = useState(-1);
   const searchContainerRef = useRef<HTMLDivElement>(null);
+  const { toast } = useToast();
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -431,17 +435,54 @@ export function BookmarkManager() {
     });
   };
 
+  // Helper function to check if a bookmark is a descendant of another bookmark
+  const isDescendant = (
+    parentId: string,
+    childId: string,
+    items: Bookmark[] = bookmarks
+  ): boolean => {
+    for (const item of items) {
+      if (item.id === parentId) {
+        if (item.children) {
+          // Check immediate children
+          if (item.children.some(child => child.id === childId)) {
+            return true;
+          }
+          // Recursively check descendants
+          return item.children.some(child => isDescendant(child.id, childId, [child]));
+        }
+        return false;
+      }
+      if (item.children) {
+        const found = isDescendant(parentId, childId, item.children);
+        if (found) return true;
+      }
+    }
+    return false;
+  };
+
   const handleDragOver = (event: any) => {
     const { active, over } = event;
     
     if (!over) return;
 
     // Find the bookmark being hovered over
-    const hoveredBookmark = findBookmarkById(bookmarks, over.id);
+    const hoveredBookmark = findBookmarkById(bookmarks, over.id.toString());
     if (hoveredBookmark) {
       // If dragging over a bookmark without children, prevent dropping
       if (!hoveredBookmark.children || hoveredBookmark.children.length === 0) {
         event.over = null;
+        return;
+      }
+
+      // Check if we're trying to drop an item into its own descendant
+      if (isDescendant(active.id.toString(), hoveredBookmark.id)) {
+        event.over = null;
+        toast({
+          title: "Invalid Drop Location",
+          description: "Cannot drop a bookmark into its own child folder",
+          variant: "destructive",
+        });
         return;
       }
 
@@ -493,15 +534,38 @@ export function BookmarkManager() {
     return null;
   };
 
+  const handleDragStart = (event: any) => {
+    const { active } = event;
+    const activeBookmark = findBookmarkById(bookmarks, active.id as string);
+    if (activeBookmark) {
+      setActiveBookmark(activeBookmark);
+    }
+  };
+
   const handleDragEnd = (event: DragEndEvent) => {
+    setActiveBookmark(null);
     const { active, over } = event;
 
     if (!over) return;
 
     if (active.id !== over.id) {
+      // Find the bookmark being dropped over
+      const targetBookmark = findBookmarkById(bookmarks, over.id.toString());
+      if (!targetBookmark) return;
+
+      // Check if we're trying to drop an item into its own descendant
+      if (isDescendant(active.id.toString(), targetBookmark.id)) {
+        toast({
+          title: "Invalid Drop Location",
+          description: "Cannot drop a bookmark into its own child folder",
+          variant: "destructive",
+        });
+        return;
+      }
+
       // Find the actual parent IDs for both source and target
-      const sourceParentId = findBookmarkParentId(bookmarks, active.id as string);
-      const targetParentId = findBookmarkParentId(bookmarks, over.id as string);
+      const sourceParentId = findBookmarkParentId(bookmarks, active.id.toString());
+      const targetParentId = findBookmarkParentId(bookmarks, over.id.toString());
 
       // Get the source and target items
       const sourceItems = sourceParentId 
@@ -730,6 +794,7 @@ export function BookmarkManager() {
 
   return (
     <div className="flex flex-col h-screen">
+      <Toaster />
       <header className="h-16 border-b flex items-center justify-between px-6">
         <AnimatedHeader />
         <div className="flex items-center gap-4">
@@ -768,6 +833,7 @@ export function BookmarkManager() {
         <DndContext
           sensors={sensors}
           collisionDetection={closestCenter}
+          onDragStart={handleDragStart}
           onDragEnd={handleDragEnd}
           onDragOver={handleDragOver}
         >
@@ -805,6 +871,26 @@ export function BookmarkManager() {
               </AnimatePresence>
             </div>
           </div>
+          <DragOverlay dropAnimation={null}>
+            {activeBookmark ? (
+              <div className="p-2 rounded-lg bg-background border shadow-lg">
+                <div className="flex items-center gap-2">
+                  {activeBookmark.icon ? (
+                    <img
+                      src={activeBookmark.icon}
+                      alt=""
+                      className="w-4 h-4 flex-shrink-0"
+                    />
+                  ) : (
+                    <FishSymbol className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                  )}
+                  <span className="text-sm truncate max-w-[200px]">
+                    {activeBookmark.title}
+                  </span>
+                </div>
+              </div>
+            ) : null}
+          </DragOverlay>
         </DndContext>
       )}
 
