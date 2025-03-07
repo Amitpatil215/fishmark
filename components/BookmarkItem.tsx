@@ -181,8 +181,8 @@ function BookmarkItemBase({
             <Plus className="h-4 w-4" />
           </Button>
         </div>
+        {hasChildren && <ChevronRight className="h-4 w-4" color="gray" />}
       </div>
-
       {isHovered && bookmark.url && <StatusBar url={bookmark.url} />}
     </div>
   );
